@@ -9,7 +9,7 @@ Vcs-Browser: https://github.com/lliurex/lliurex-auto-upgrade
 
 Package: lliurex-auto-upgrade
 Architecture: all
-Depends: python3
+Depends: python3, python3-psutil, python3-requests, python3-apt
 Description: LliureX auto Upgrade service
   This package maintains a remote list of packages updated.
 
