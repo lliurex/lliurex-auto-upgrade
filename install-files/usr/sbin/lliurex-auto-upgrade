@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 
-import sys
 import os
 import json
 import random
 import requests
 import apt
-import threading
 import time
 
 class LliurexAutoUpgrade:
 	
 	def __init__(self):
 		
-		self.disable_file="/etc/lliurex-auto-updater/disabled"
+		self.disable_file="/etc/lliurex-auto-upgrade/disabled"
 		self.packages_to_update=False
 		self.packages_to_enforce=False
 		self.sleep_time=10
