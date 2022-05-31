@@ -9,7 +9,7 @@ import apt
 import threading
 import time
 
-class LliurexAutoUpdater:
+class LliurexAutoUpgrade:
 	
 	def __init__(self):
 		
@@ -251,4 +251,4 @@ class LliurexAutoUpdater:
 
 if __name__=="__main__":
 	
-	lau=LliurexAutoUpdater()
+	lau=LliurexAutoUpgrade()
