@@ -6,12 +6,15 @@ import random
 import requests
 import apt
 import time
+import sys
+import psutil
 
 class LliurexAutoUpgrade:
 	
 	def __init__(self):
 		
 		self.disable_file="/etc/lliurex-auto-upgrade/disabled"
+		self.pid_file="/run/lliurex-auto-upgrade.pid"
 		self.packages_to_update=False
 		self.packages_to_enforce=False
 		self.sleep_time=10
@@ -20,6 +23,8 @@ class LliurexAutoUpgrade:
 			
 		self.actions_url="http://svnlliurexnet.gva.es/leia/public/lliurex_actions.json"
 		self.tags_dir="tags/"
+		
+		self.write_pid()
 		
 		if self.is_auto_update_configured():
 		
@@ -66,6 +71,23 @@ class LliurexAutoUpgrade:
 		print("[LAU] %s"%str(data))
 		
 	#def pprint
+	
+	def write_pid(self):
+		
+		if os.path.exists(self.pid_file):
+			f=open(self.pid_file)
+			pid=int(f.read())
+			f.close()
+		
+		if psutil.pid_exists(pid):
+			self.pprint("Another lliurex-auto-upgrade process (%s) seems to be running. Exiting..."%pid)
+			sys.exit(0)
+		else:
+			f=open(self.pid_file,"w")
+			f.write(str(os.getpid()))
+			f.close()
+		
+	#def write_pid	
 	
 	def is_auto_update_configured(self):
 		
@@ -118,11 +140,7 @@ class LliurexAutoUpgrade:
 	
 	def get_lliurex_flavor(self):
 		
-		fake_flavors=["server","client"]
-		flavor=fake_flavors[int((random.random()*2))]
-		
-		return flavor
-		
+		return subprocess.check_output("lliurex-version -f",shell=True).decode("utf-8").strip("\n")
 		
 	#def get_lliurex_flavor
 	
@@ -213,10 +231,19 @@ class LliurexAutoUpgrade:
 					
 	#def mark_enforce
 	
+	def fixes_before_execution(self):
+		
+		if self.apt_cache.dpkg_journal_dirty:
+			os.system("dpkg --configure -a")
+		self.apt_cache.fix_broken()
+		
+	#def fixes_before_execution
+	
 	def execute(self):
 		
 		if self.packages_to_update or self.packages_to_enforce:
 			self.pprint("Updating system...")
+			self.fixes_before_execution()
 			self.apt_cache.commit()
 		else:
 			self.pprint("")
@@ -243,6 +270,8 @@ class LliurexAutoUpgrade:
 		self.pprint("")
 		
 	#def print_system_info
+	
+	
 	
 #class LliurexAutoUpdater
 
