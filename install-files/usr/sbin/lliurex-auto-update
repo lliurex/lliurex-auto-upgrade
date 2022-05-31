@@ -1,0 +1,254 @@
+#!/usr/bin/env python3
+
+import sys
+import os
+import json
+import random
+import requests
+import apt
+import threading
+import time
+
+class LliurexAutoUpdater:
+	
+	def __init__(self):
+		
+		self.disable_file="/etc/lliurex-auto-updater/disabled"
+		self.packages_to_update=False
+		self.packages_to_enforce=False
+		self.sleep_time=10
+		self.random_sleep_seed=int(random.random()*5)
+		self.last_update=None
+			
+		self.actions_url="http://svnlliurexnet.gva.es/leia/public/lliurex_actions.json"
+		self.tags_dir="tags/"
+		
+		if self.is_auto_update_configured():
+		
+			self.flavor=self.get_lliurex_flavor()
+			self.tags=self.get_tags()
+		
+			self.pprint("Starting...")
+			self.print_system_info()
+			
+			while True:			
+				time.sleep(self.random_sleep_seed)
+				try:
+					self.remote_actions=self.get_actions_file()
+					if self.remote_actions!=None:
+						if self.last_update!=self.remote_actions["last_update"]:
+							self.pprint("Updating phase...")
+							self.pprint("")
+							self.last_update=self.remote_actions["last_update"]
+							self.apt_cache=apt.Cache()
+							self.apt_cache.update()
+							self.my_actions=self.gather_actions()
+							self.print_my_actions()
+							self.mark_update()
+							self.mark_enforce()
+							self.execute()
+							self.pprint("Done")
+							self.pprint("")
+						else:
+							self.pprint("Nothing to do")
+				except Exception as e:
+					self.pprint("Exception: %s"%str(e))
+						
+				self.pprint("Sleeping...")
+				time.sleep(self.sleep_time)
+				
+		else:
+			self.pprint("'%s' exists, service is disabled. Exiting..."%self.disable_file)
+			
+		
+	#def __init__
+	
+	def pprint(self,data):
+		
+		print("[LAU] %s"%str(data))
+		
+	#def pprint
+	
+	def is_auto_update_configured(self):
+		
+		if os.path.exists(self.disable_file):
+			return False
+		
+		return True
+		
+	#def is_auto_update_configured
+	
+	def is_package_installed(self,package):
+		
+		if package in self.apt_cache:
+			return self.apt_cache[package].is_installed
+		return False
+		
+	#def is_package_installed
+	
+	def is_package_upgradable(self,package):
+		
+		if package in self.apt_cache:
+			return self.apt_cache[package].is_upgradable
+			
+		return False
+		
+	#def is_package_upgradable
+	
+	def get_actions_file(self,url=None):
+		
+		data=None
+		if url==None:
+			url=self.actions_url
+		
+		if not os.path.exists("lliurex_actions.json_"):
+			try:
+				response = requests.get(url)
+				data = response.json()
+			except Exception as e:
+				print(e)
+				data=None
+		else:
+			f=open("lliurex_actions.json")
+			data=json.load(f)
+			f.close()
+
+		return data
+		
+	#def get_actions_file
+	
+	
+	def get_lliurex_flavor(self):
+		
+		fake_flavors=["server","client"]
+		flavor=fake_flavors[int((random.random()*2))]
+		
+		return flavor
+		
+		
+	#def get_lliurex_flavor
+	
+	def get_tags(self):
+		
+		tags=[]
+		if os.path.exists(self.tags_dir):
+			dir_list=os.listdir(self.tags_dir)
+			for item in dir_list:
+				if os.path.isfile(self.tags_dir+item):
+					tags.append(item)
+		
+		return tags
+		
+		
+	#def get_tags
+	
+	def gather_actions(self):
+		
+		actions={}
+		actions["update"]=[]
+		actions["enforce"]=[]
+		flavors=["common"]
+		if self.flavor!=None:
+			flavors.append(self.flavor)
+		
+		
+		for flavor in flavors:
+			
+			for action in self.remote_actions["flavors"][flavor]["update"]:
+				if action not in actions["update"]:
+					actions["update"].append(action)
+			
+			for action in self.remote_actions["flavors"][flavor]["enforce"]:
+				if action not in actions["enforce"]:
+					actions["enforce"].append(action)
+		
+		
+		for tag in self.tags:
+			
+			if tag in self.remote_actions["tags"]:
+				for action in self.remote_actions["tags"][tag]["update"]:
+					if action not in actions["update"]:
+						actions["update"].append(action)
+			
+				for action in self.remote_actions["tags"][tag]["enforce"]:
+					if action not in actions["enforce"]:
+						actions["enforce"].append(action)
+		
+		
+		# lets filter what we dont have installed in the update section
+		filtered_update=[]
+		for update in actions["update"]:
+			if self.is_package_installed(update):
+				filtered_update.append(update)
+		actions["update"]=filtered_update
+		
+		return actions
+		
+	#def
+	
+	def mark_update(self):
+		
+		self.packages_to_update=False
+		
+		for package in self.my_actions["update"]:
+			if self.is_package_upgradable(package):
+				self.pprint("Marking %s update..."%package)
+				self.apt_cache[package].mark_upgrade()
+				self.packages_to_update=True
+				
+	#def mark_update
+	
+	def mark_enforce(self):
+		
+		self.packages_to_enforce=False
+		
+		for package in self.my_actions["enforce"]:
+			if package in self.apt_cache and not self.is_package_installed(package):
+				self.pprint("Marking %s enforce..."%package)
+				self.packages_to_enforce=True
+				self.apt_cache[package].mark_install()
+			else:
+				if self.is_package_upgradable(package):
+					self.pprint("Marking %s enforce..."%package)
+					self.packages_to_enforce=True
+					self.apt_cache[package].mark_upgrade()
+					
+	#def mark_enforce
+	
+	def execute(self):
+		
+		if self.packages_to_update or self.packages_to_enforce:
+			self.pprint("Updating system...")
+			self.apt_cache.commit()
+		else:
+			self.pprint("")
+			self.pprint("\tNothing to execute. Everything is up to date")
+			self.pprint("")
+		
+	#def execute
+	
+	def print_my_actions(self):
+		
+		self.pprint("\tUpdate:")
+		self.pprint("\t\t%s"%self.my_actions["update"])
+		self.pprint("\tEnforce:")
+		self.pprint("\t\t%s"%self.my_actions["enforce"])
+		
+	#def print_my_actions
+	
+	def print_system_info(self):
+		
+		self.pprint("")
+		self.pprint("System info:")
+		self.pprint("\tFlavor: %s"%str(self.flavor))
+		self.pprint("\tTags: %s"%str(self.tags))
+		self.pprint("")
+		
+	#def print_system_info
+	
+#class LliurexAutoUpdater
+
+
+if __name__=="__main__":
+	
+	lau=LliurexAutoUpdater()
