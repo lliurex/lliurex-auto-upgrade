@@ -16,6 +16,8 @@ class LliurexAutoUpgrade:
 	
 	DEBUG=True
 	SYSLOG=True
+	RANDOM_SLEEP_WINDOW=30
+	SLEEP_TIME=60*60
 	
 	def __init__(self):
 		
@@ -25,8 +27,8 @@ class LliurexAutoUpgrade:
 		self.pid_file="/run/lliurex-auto-upgrade.pid"
 		self.packages_to_update=False
 		self.packages_to_enforce=False
-		self.sleep_time=10
-		self.random_sleep_seed=int(random.random()*5)
+		self.sleep_time=LliurexAutoUpgrade.SLEEP_TIME
+		self.random_sleep_seed=int(random.random()*LliurexAutoUpgrade.RANDOM_SLEEP_WINDOW)
 		self.last_update=None
 		
 		self.write_pid()
@@ -39,8 +41,11 @@ class LliurexAutoUpgrade:
 			self.pprint("Starting...")
 			self.print_system_info()
 			
-			while True:			
-				time.sleep(self.random_sleep_seed)
+			while True:
+				
+				if self.last_update==None:
+					#we only sleep a random amount the first time
+					time.sleep(self.random_sleep_seed)
 				try:
 					self.remote_actions=self.get_actions_file()
 					if self.remote_actions!=None:
