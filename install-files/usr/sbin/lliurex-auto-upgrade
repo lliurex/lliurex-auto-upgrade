@@ -10,10 +10,12 @@ import sys
 import psutil
 import subprocess
 
+
 class LliurexAutoUpgrade:
 	
 	def __init__(self):
 		
+		self.debug=True
 		self.disable_file="/etc/lliurex-auto-upgrade/disabled"
 		self.pid_file="/run/lliurex-auto-upgrade.pid"
 		self.packages_to_update=False
@@ -71,7 +73,8 @@ class LliurexAutoUpgrade:
 	
 	def pprint(self,data):
 		
-		print("[LAU] %s"%str(data))
+		if self.debug:
+			print("[LAU] %s"%str(data))
 		
 	#def pprint
 	
