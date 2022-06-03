@@ -1,3 +1,10 @@
+lliurex-auto-upgrade (0.2) focal; urgency=medium
+
+  * Fixed pid logic
+  * Service is more verbose
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 03 Jun 2022 10:34:36 +0200
+
 lliurex-auto-upgrade (0.1) focal; urgency=medium
 
   * Initial release. 
