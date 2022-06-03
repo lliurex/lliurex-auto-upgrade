@@ -9,13 +9,18 @@ import time
 import sys
 import psutil
 import subprocess
+import syslog
 
 
 class LliurexAutoUpgrade:
 	
+	DEBUG=True
+	SYSLOG=True
+	
 	def __init__(self):
 		
-		self.debug=True
+		self.actions_url="http://svnlliurexnet.gva.es/leia/public/lliurex_actions.json"
+		self.tags_dir="/etc/lliurex-auto-upgrade/tags/"
 		self.disable_file="/etc/lliurex-auto-upgrade/disabled"
 		self.pid_file="/run/lliurex-auto-upgrade.pid"
 		self.packages_to_update=False
@@ -23,9 +28,6 @@ class LliurexAutoUpgrade:
 		self.sleep_time=10
 		self.random_sleep_seed=int(random.random()*5)
 		self.last_update=None
-			
-		self.actions_url="http://svnlliurexnet.gva.es/leia/public/lliurex_actions.json"
-		self.tags_dir="/etc/lliurex-auto-upgrade/tags/"
 		
 		self.write_pid()
 		
@@ -73,8 +75,11 @@ class LliurexAutoUpgrade:
 	
 	def pprint(self,data):
 		
-		if self.debug:
+		if LliurexAutoUpgrade.DEBUG:
 			print("[LAU] %s"%str(data))
+			
+		if LliurexAutoUpgrade.SYSLOG:
+			syslog.syslog("[LAU] %s"%str(data))
 		
 	#def pprint
 	
@@ -161,7 +166,6 @@ class LliurexAutoUpgrade:
 		
 		return tags
 		
-		
 	#def get_tags
 	
 	def gather_actions(self):
@@ -170,9 +174,9 @@ class LliurexAutoUpgrade:
 		actions["update"]=[]
 		actions["enforce"]=[]
 		flavors=["common"]
+		
 		if self.flavor!=None:
 			flavors.append(self.flavor)
-		
 		
 		for flavor in flavors:
 			
@@ -195,16 +199,12 @@ class LliurexAutoUpgrade:
 					if action not in actions["enforce"]:
 						actions["enforce"].append(action)
 		
-		
-		self.pprint("\tFiltering non installed packages from update list...")
 		filtered_update=[]
 		for update in actions["update"]:
 			if self.is_package_installed(update):
 				filtered_update.append(update)
-			else:
-				self.pprint("\t\tRemoving %s..."%update)
+
 		actions["update"]=filtered_update
-		
 		return actions
 		
 	#def
@@ -280,7 +280,6 @@ class LliurexAutoUpgrade:
 		self.pprint("")
 		
 	#def print_system_info
-	
 	
 	
 #class LliurexAutoUpdater
