@@ -2,6 +2,8 @@ lliurex-auto-upgrade (0.2.1) focal; urgency=medium
 
   * Fixed pid logic
   * Service is more verbose
+  * Outputs messages to syslog
+  * It only random sleeps on first loop
 
  -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 03 Jun 2022 10:34:36 +0200
 
