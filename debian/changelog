@@ -1,4 +1,4 @@
-lliurex-auto-upgrade (0.2) focal; urgency=medium
+lliurex-auto-upgrade (0.2.1) focal; urgency=medium
 
   * Fixed pid logic
   * Service is more verbose
