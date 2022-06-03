@@ -79,7 +79,7 @@ class LliurexAutoUpgrade:
 			print("[LAU] %s"%str(data))
 			
 		if LliurexAutoUpgrade.SYSLOG:
-			syslog.syslog("[LAU] %s"%str(data))
+			syslog.syslog("[LAU] %s"%str(data).replace("\t","    "))
 		
 	#def pprint
 	
