@@ -196,7 +196,7 @@ class LliurexAutoUpgrade:
 						actions["enforce"].append(action)
 		
 		
-		self.pprint("\Filtering non installed packages from update list...")
+		self.pprint("\tFiltering non installed packages from update list...")
 		filtered_update=[]
 		for update in actions["update"]:
 			if self.is_package_installed(update):
