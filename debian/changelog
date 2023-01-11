@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.2.2) focal; urgency=medium
+
+  * Added self flavor in remote actions check
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 11 Jan 2023 10:02:28 +0100
+
 lliurex-auto-upgrade (0.2.1) focal; urgency=medium
 
   * Fixed pid logic
