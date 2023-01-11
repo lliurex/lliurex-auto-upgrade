@@ -185,13 +185,14 @@ class LliurexAutoUpgrade:
 		
 		for flavor in flavors:
 			
-			for action in self.remote_actions["flavors"][flavor]["update"]:
-				if action not in actions["update"]:
-					actions["update"].append(action)
-						
-			for action in self.remote_actions["flavors"][flavor]["enforce"]:
-				if action not in actions["enforce"]:
-					actions["enforce"].append(action)
+			if flavor in self.remote_actions["flavors"]:
+				for action in self.remote_actions["flavors"][flavor]["update"]:
+					if action not in actions["update"]:
+						actions["update"].append(action)
+
+				for action in self.remote_actions["flavors"][flavor]["enforce"]:
+					if action not in actions["enforce"]:
+						actions["enforce"].append(action)
 					
 		for tag in self.tags:
 			
@@ -212,7 +213,7 @@ class LliurexAutoUpgrade:
 		actions["update"]=filtered_update
 		return actions
 		
-	#def
+	#def gather_actions
 	
 	def mark_update(self):
 		
