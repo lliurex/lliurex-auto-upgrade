@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.2.3) focal; urgency=medium
+
+  * try to install packages regardless of apt update output
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Thu, 02 Mar 2023 11:58:54 +0100
+
 lliurex-auto-upgrade (0.2.2) focal; urgency=medium
 
   * Added self flavor in remote actions check
