@@ -19,6 +19,8 @@ class LliurexAutoUpgrade:
 	RANDOM_SLEEP_WINDOW=30
 	SLEEP_TIME=60*60
 	
+	IGNORE_UPDATE_ERROR=True
+	
 	def __init__(self):
 		
 		self.actions_url="http://svnlliurexnet.gva.es/leia/public/lliurex_actions.json"
@@ -55,7 +57,13 @@ class LliurexAutoUpgrade:
 							self.last_update=self.remote_actions["last_update"]
 							self.apt_cache=apt.Cache()
 							self.pprint("\tUpdating cache...")
-							self.apt_cache.update()
+							try:
+								self.apt_cache.update()
+							except Exception as update_exc:
+								if LliurexAutoUpgrade.IGNORE_UPDATE_ERROR:
+									pass
+								else:
+									raise update_exc
 							self.pprint("\tGathering actions from server...")
 							self.my_actions=self.gather_actions()
 							self.print_my_actions()
