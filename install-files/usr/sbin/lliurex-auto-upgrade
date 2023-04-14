@@ -17,7 +17,9 @@ class LliurexAutoUpgrade:
 	DEBUG=True
 	SYSLOG=True
 	RANDOM_SLEEP_WINDOW=30
-	SLEEP_TIME=60*60
+	SLEEP_TIME=60*40
+	ALTERNATE_SLEEP_TIME=60
+	MAX_RETRIES_FIRST_UPDATE=5
 	
 	IGNORE_UPDATE_ERROR=True
 	
@@ -29,7 +31,6 @@ class LliurexAutoUpgrade:
 		self.pid_file="/run/lliurex-auto-upgrade.pid"
 		self.packages_to_update=False
 		self.packages_to_enforce=False
-		self.sleep_time=LliurexAutoUpgrade.SLEEP_TIME
 		self.random_sleep_seed=int(random.random()*LliurexAutoUpgrade.RANDOM_SLEEP_WINDOW)
 		self.last_update=None
 		
@@ -39,6 +40,9 @@ class LliurexAutoUpgrade:
 		
 			self.flavor=self.get_lliurex_flavor()
 			self.tags=self.get_tags()
+		
+			first_round_success=False
+			error_count=0
 		
 			self.pprint("Starting...")
 			self.print_system_info()
@@ -74,11 +78,22 @@ class LliurexAutoUpgrade:
 							self.pprint("")
 						else:
 							self.pprint("Nothing to do")
+					
+					if self.remote_actions != None:
+						first_round_success=True
+						
 				except Exception as e:
 					self.pprint("Exception: %s"%str(e))
 						
 				self.pprint("Sleeping...")
-				time.sleep(self.sleep_time)
+				if first_round_success:
+					time.sleep(LliurexAutoUpgrade.SLEEP_TIME)
+				else:
+					error_count+=1
+					if error_count == LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE:
+						# next loop will wake in LliurexAutoUpgrade.SLEEP_TIME hour
+						first_round_success=True
+					time.sleep(LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME)
 				
 		else:
 			self.pprint("'%s' exists, service is disabled. Exiting..."%self.disable_file)
