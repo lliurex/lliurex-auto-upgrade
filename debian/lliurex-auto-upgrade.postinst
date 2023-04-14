@@ -16,6 +16,18 @@ case "$1" in
 		deb-systemd-invoke start lliurex-auto-upgrade.service >/dev/null || true
 	fi
 	
+	echo -e "
+	#!/bin/bash\n
+	
+	systemctl restart lliurex-auto-upgrade || true
+
+	" > /var/lib/n4d/oneshot/050-lliurex-auto-upgrade
+
+	chmod +x /var/lib/n4d/oneshot/050-lliurex-auto-upgrade
+
+	deb-systemd-invoke restart n4d || true
+
+
    ;;
 
    abort-upgrade|abort-remove|abort-deconfigure)
