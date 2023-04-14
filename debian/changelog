@@ -1,4 +1,4 @@
-lliurex-auto-upgrade (0.3.1) focal; urgency=medium
+lliurex-auto-upgrade (0.3.2) focal; urgency=medium
 
   * changes in debian/rules
 
