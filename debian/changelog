@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.3.4) focal; urgency=medium
+
+  * back to apt install -f manually
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 14 Apr 2023 12:06:21 +0200
+
 lliurex-auto-upgrade (0.3.3) focal; urgency=medium
 
   * Trying to restore apt_cache.fix_broken() instead of manually calling apt
