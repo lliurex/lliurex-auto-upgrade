@@ -13,3 +13,9 @@ Depends: python3, python3-psutil, python3-requests, python3-apt
 Description: LliureX auto Upgrade service
   This package maintains a remote list of packages updated.
 
+Package: lliurex-auto-upgrade-fix
+Architecture: all
+Depends: lliurex-auto-upgrade (>=0.3)
+Description: LliureX auto Upgrade fix
+  This package forces lliurex-auto-upgrade update to 0.3.
+
