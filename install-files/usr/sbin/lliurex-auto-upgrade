@@ -19,7 +19,7 @@ class LliurexAutoUpgrade:
 	RANDOM_SLEEP_WINDOW=30
 	SLEEP_TIME=60*40
 	ALTERNATE_SLEEP_TIME=60
-	MAX_RETRIES_FIRST_UPDATE=10
+	MAX_RETRIES_FIRST_UPDATE=20
 	
 	IGNORE_UPDATE_ERROR=True
 	
@@ -78,6 +78,7 @@ class LliurexAutoUpgrade:
 							self.pprint("")
 						else:
 							self.pprint("Nothing to do")
+							self.pprint("")
 					
 					if self.remote_actions != None:
 						first_round_success=True
@@ -85,14 +86,16 @@ class LliurexAutoUpgrade:
 				except Exception as e:
 					self.pprint("Exception: %s"%str(e))
 						
-				self.pprint("Sleeping...")
+				
 				if first_round_success:
+					self.pprint("Sleeping...")
 					time.sleep(LliurexAutoUpgrade.SLEEP_TIME)
 				else:
 					error_count+=1
 					if error_count == LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE:
 						# next loop will wake in LliurexAutoUpgrade.SLEEP_TIME hour
 						first_round_success=True
+					self.pprint("Sleeping a reduced time since we failed to complete first run on try %s/%s ..."%(error_count,LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE))
 					time.sleep(LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME)
 				
 		else:
@@ -119,7 +122,7 @@ class LliurexAutoUpgrade:
 			f.close()
 		
 			if psutil.pid_exists(self.pid):
-				self.pprint("Another lliurex-auto-upgrade process (%s) seems to be running. Exiting..."%pid)
+				self.pprint("Another lliurex-auto-upgrade process (%s) seems to be running. Exiting..."%self.pid)
 				sys.exit(0)
 
 		f=open(self.pid_file,"w")
@@ -160,12 +163,12 @@ class LliurexAutoUpgrade:
 		if url==None:
 			url=self.actions_url
 		
-		if not os.path.exists("lliurex_actions.json_"):
+		if not os.path.exists("lliurex_actions.json"):
 			try:
 				response = requests.get(url)
 				data = response.json()
 			except Exception as e:
-				print(e)
+				self.pprint("Failed to download remote file.")
 				data=None
 		else:
 			f=open("lliurex_actions.json")
