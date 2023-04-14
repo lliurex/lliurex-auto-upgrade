@@ -1,6 +1,13 @@
+lliurex-auto-upgrade (0.3.3) focal; urgency=medium
+
+  * Trying to restore apt_cache.fix_broken() instead of manually calling apt
+    install -f
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 14 Apr 2023 11:30:35 +0200
+
 lliurex-auto-upgrade (0.3.2) focal; urgency=medium
 
-  * changes in debian/rules
+  * changes in debian/rules and postinst
 
  -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 14 Apr 2023 11:05:18 +0200
 
