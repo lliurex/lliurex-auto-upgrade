@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.3.1) focal; urgency=medium
+
+  * changes in debian/rules
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 14 Apr 2023 11:05:18 +0200
+
 lliurex-auto-upgrade (0.3) focal; urgency=medium
 
   * making sure service doesn't wait an hour if it fails the very first time 
