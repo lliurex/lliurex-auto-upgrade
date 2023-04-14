@@ -71,8 +71,6 @@ class LliurexAutoUpgrade:
 							self.pprint("\tGathering actions from server...")
 							self.my_actions=self.gather_actions()
 							self.print_my_actions()
-							self.mark_update()
-							self.mark_enforce()
 							self.execute()
 							self.pprint("Done")
 							self.pprint("")
@@ -273,10 +271,9 @@ class LliurexAutoUpgrade:
 			self.pprint("\t\tExecuting dpkg --configure -a ...")
 			os.system("dpkg --configure -a")
 		self.pprint("\t\tExecuting apt install -f...")
-		os.system("apt install -f")
-		
+		#os.system("apt install -f")
 		# this call is caousing marked packages not to update. Trying to call apt install -f manually instead
-		#self.apt_cache.fix_broken()
+		self.apt_cache.fix_broken()
 		
 	#def fixes_before_execution
 	
@@ -285,6 +282,8 @@ class LliurexAutoUpgrade:
 		if self.packages_to_update or self.packages_to_enforce:
 			self.pprint("\tUpdating system...")
 			self.fixes_before_execution()
+			self.mark_update()
+			self.mark_enforce()
 			self.pprint("\t\tInstalling updates...")
 			self.apt_cache.commit()
 		else:
