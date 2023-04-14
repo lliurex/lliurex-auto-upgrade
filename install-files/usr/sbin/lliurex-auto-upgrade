@@ -19,7 +19,7 @@ class LliurexAutoUpgrade:
 	RANDOM_SLEEP_WINDOW=30
 	SLEEP_TIME=60*40
 	ALTERNATE_SLEEP_TIME=60
-	MAX_RETRIES_FIRST_UPDATE=5
+	MAX_RETRIES_FIRST_UPDATE=10
 	
 	IGNORE_UPDATE_ERROR=True
 	
@@ -273,7 +273,10 @@ class LliurexAutoUpgrade:
 			self.pprint("\t\tExecuting dpkg --configure -a ...")
 			os.system("dpkg --configure -a")
 		self.pprint("\t\tExecuting apt install -f...")
-		self.apt_cache.fix_broken()
+		os.system("apt install -f")
+		
+		# this call is caousing marked packages not to update. Trying to call apt install -f manually instead
+		#self.apt_cache.fix_broken()
 		
 	#def fixes_before_execution
 	
