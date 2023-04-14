@@ -1,6 +1,11 @@
 lliurex-auto-upgrade (0.3) focal; urgency=medium
 
   * making sure service doesn't wait an hour if it fails the very first time 
+  * apt_cache.fix_broken() somehow unmarks packages to upgrade. Manually
+    calling apt install -f for now to test the waters.
+  * Since 0.2.3 is not able to upgrade packages and we want
+    lliurex-auto-upgrade to be updated, lliurex-auto-upgrade-fix package was
+    created to force the intallation of lliurex-auto-upgrade=0.3
 
  -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 14 Apr 2023 09:01:50 +0200
 
