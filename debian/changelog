@@ -1,5 +1,13 @@
 lliurex-auto-upgrade (0.3.6) focal; urgency=medium
 
+  * Trying to fix error in semithin clients as n4d is not up and is not able
+    to create /var/lib/n4d/oneshot directory. Maybe n4d should create this dir
+    in its .dirs debian file. 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 10 May 2023 17:56:01 +0200
+
+lliurex-auto-upgrade (0.3.6) focal; urgency=medium
+
   * Trying to use n4d oneshot to avoid not being able to restart service after
     upgrade.
 
