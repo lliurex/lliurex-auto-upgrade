@@ -1,4 +1,4 @@
-lliurex-auto-upgrade (0.3.6) focal; urgency=medium
+lliurex-auto-upgrade (0.3.7) focal; urgency=medium
 
   * Trying to fix error in semithin clients as n4d is not up and is not able
     to create /var/lib/n4d/oneshot directory. Maybe n4d should create this dir
