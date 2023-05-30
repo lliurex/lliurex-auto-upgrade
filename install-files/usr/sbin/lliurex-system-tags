@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2023 Enrique M.G. <quiqueiii@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+import os
+import sys
+import glob
+import subprocess
+
+TAGS_DIR = "/etc/lliurex-auto-upgrade/tags/"
+tags = []
+
+def llx_gva_hwdb():
+	data = {"vendor":"unknown", "system":"unknown","model":"unknown","type":"unknown"}
+	tmp = subprocess.check_output(["llx-gva-hwdb","info"])
+	tmp = tmp.decode("utf-8").split("\n")
+
+	for key in tmp:
+		k = key.split(":")
+		if (k[0] in data):
+			data[k[0]] = k[1]
+
+	return data
+
+def clear_tags():
+	for path in (glob.glob(TAGS_DIR+"system.*")):
+		os.remove(path)
+
+def tag_system():
+	if (os.path.exists("/sys/firmware/efi")):
+		tags.append("system.platform.firmware.uefi")
+	else:
+		tags.append("system.platform.firmware.legacy")
+
+
+	hwdb = llx_gva_hwdb()
+
+	for k in hwdb:
+		tags.append("system."+k+"."+hwdb[k])
+
+	for t in tags:
+		print(t)
+
+if __name__=="__main__":
+	clear_tags()
+	tag_system()
