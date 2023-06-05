@@ -1,0 +1,10 @@
+[Unit]
+Description=System tags for autoupgrades
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/lliurex-system-tags
+ExecStop=/bin/true
+
+[Install]
+WantedBy=default.target

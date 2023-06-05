@@ -37,6 +37,9 @@ def clear_tags():
 def tag_system():
 	if (os.path.exists("/sys/firmware/efi")):
 		tags.append("system.platform.firmware.uefi")
+
+		if (os.path.exists("/boot/efi/EFI/lliurex-21/shimx64.efi")):
+			tags.append("system.platform.firmware.uefi.shim")
 	else:
 		tags.append("system.platform.firmware.legacy")
 
