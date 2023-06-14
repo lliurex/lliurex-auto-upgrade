@@ -1,3 +1,10 @@
+lliurex-auto-upgrade (0.3.8) focal; urgency=medium
+
+  * last_update record must be reset if we want service to retry again.
+  * reduced first run retries to 10
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 14 Jun 2023 10:01:07 +0200
+
 lliurex-auto-upgrade (0.3.7) focal; urgency=medium
 
   * Trying to fix error in semithin clients as n4d is not up and is not able
