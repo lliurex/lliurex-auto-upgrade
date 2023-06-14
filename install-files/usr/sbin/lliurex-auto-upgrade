@@ -95,6 +95,9 @@ class LliurexAutoUpgrade:
 					if error_count == LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE:
 						# next loop will wake in LliurexAutoUpgrade.SLEEP_TIME hour
 						first_round_success=True
+					else:
+						# we have to reset last_update value to force new try after sleeping
+						self.last_update=None
 					self.pprint("Sleeping a reduced time since we failed to complete first run on try %s/%s ..."%(error_count,LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE))
 					time.sleep(LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME)
 				
