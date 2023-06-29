@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2023 Enrique M.G. <quiqueiii@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+import os
+import sys
+import glob
+import subprocess
+import pathlib
+
+TAGS_DIR = "/etc/lliurex-auto-upgrade/tags/"
+tags = []
+model = "unknown"
+
+def llx_gva_hwdb():
+	data = {"vendor":"unknown", "system":"unknown","model":"unknown","type":"unknown"}
+
+	try:
+		tmp = subprocess.check_output(["llx-gva-hwdb","info"])
+		tmp = tmp.decode("utf-8").split("\n")
+
+		for key in tmp:
+			k = key.split(":")
+			if (k[0] in data):
+				data[k[0]] = k[1]
+	except:
+		pass
+
+	return data
+
+def clear_tags():
+	for path in (glob.glob(TAGS_DIR+"system.*")):
+		os.remove(path)
+
+def tag_system():
+	if (os.path.exists("/sys/firmware/efi")):
+		tags.append("system.platform.firmware.uefi")
+
+		if (os.path.exists("/boot/efi/EFI/lliurex-21/shimx64.efi")):
+			tags.append("system.platform.firmware.uefi.shim")
+	else:
+		tags.append("system.platform.firmware.legacy")
+
+	hwdb = llx_gva_hwdb()
+
+	tags.append("system.vendor."+hwdb["vendor"])
+	tags.append("system.product."+hwdb["system"])
+
+	model = hwdb["model"]
+	tags.append("system.gva.model."+model)
+	tags.append("system.gva.type."+hwdb["type"])
+
+
+if __name__=="__main__":
+	if (not os.path.exists(TAGS_DIR)):
+		sys.exit(0)
+
+	clear_tags()
+	tag_system()
+
+	for tag in tags:
+		p = pathlib.Path(TAGS_DIR+tag)
+		p.touch()
