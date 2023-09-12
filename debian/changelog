@@ -1,0 +1,85 @@
+lliurex-auto-upgrade (0.3.8) focal; urgency=medium
+
+  * last_update record must be reset if we want service to retry again.
+  * reduced first run retries to 10
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 14 Jun 2023 10:01:07 +0200
+
+lliurex-auto-upgrade (0.3.7) focal; urgency=medium
+
+  * Trying to fix error in semithin clients as n4d is not up and is not able
+    to create /var/lib/n4d/oneshot directory. Maybe n4d should create this dir
+    in its .dirs debian file. 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 10 May 2023 17:56:01 +0200
+
+lliurex-auto-upgrade (0.3.6) focal; urgency=medium
+
+  * Trying to use n4d oneshot to avoid not being able to restart service after
+    upgrade.
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 14 Apr 2023 13:46:14 +0200
+
+lliurex-auto-upgrade (0.3.5) focal; urgency=medium
+
+  * Added more verbosity
+  * Fixed small errors
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 14 Apr 2023 13:13:40 +0200
+
+lliurex-auto-upgrade (0.3.4) focal; urgency=medium
+
+  * back to apt install -f manually
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 14 Apr 2023 12:06:21 +0200
+
+lliurex-auto-upgrade (0.3.3) focal; urgency=medium
+
+  * Trying to restore apt_cache.fix_broken() instead of manually calling apt
+    install -f
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 14 Apr 2023 11:30:35 +0200
+
+lliurex-auto-upgrade (0.3.2) focal; urgency=medium
+
+  * changes in debian/rules and postinst
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 14 Apr 2023 11:05:18 +0200
+
+lliurex-auto-upgrade (0.3) focal; urgency=medium
+
+  * making sure service doesn't wait an hour if it fails the very first time 
+  * apt_cache.fix_broken() somehow unmarks packages to upgrade. Manually
+    calling apt install -f for now to test the waters.
+  * Since 0.2.3 is not able to upgrade packages and we want
+    lliurex-auto-upgrade to be updated, lliurex-auto-upgrade-fix package was
+    created to force the intallation of lliurex-auto-upgrade=0.3
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 14 Apr 2023 09:01:50 +0200
+
+lliurex-auto-upgrade (0.2.3) focal; urgency=medium
+
+  * try to install packages regardless of apt update output
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Thu, 02 Mar 2023 11:58:54 +0100
+
+lliurex-auto-upgrade (0.2.2) focal; urgency=medium
+
+  * Added self flavor in remote actions check
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 11 Jan 2023 10:02:28 +0100
+
+lliurex-auto-upgrade (0.2.1) focal; urgency=medium
+
+  * Fixed pid logic
+  * Service is more verbose
+  * Outputs messages to syslog
+  * It only random sleeps on first loop
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 03 Jun 2022 10:34:36 +0200
+
+lliurex-auto-upgrade (0.1) focal; urgency=medium
+
+  * Initial release. 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Tue, 31 May 2022 11:45:14 +0200

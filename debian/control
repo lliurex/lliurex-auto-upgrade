@@ -1,0 +1,22 @@
+Source: lliurex-auto-upgrade
+Section: python
+Priority: standard
+Maintainer: Equipo LliureX <lliurex@gva.es> 
+Build-Depends: debhelper (>=10)
+Standards-Version: 4.1.2
+Homepage: http://lliurex.net
+Vcs-Browser: https://github.com/lliurex/lliurex-auto-upgrade
+
+Package: lliurex-auto-upgrade
+Architecture: all
+Pre-Depends: n4d (>=0.952)
+Depends: python3, python3-psutil, python3-requests, python3-apt
+Description: LliureX auto Upgrade service
+  This package maintains a remote list of packages updated.
+
+Package: lliurex-auto-upgrade-fix
+Architecture: all
+Depends: lliurex-auto-upgrade (>=0.3)
+Description: LliureX auto Upgrade fix
+  This package forces lliurex-auto-upgrade update to 0.3.
+
