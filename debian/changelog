@@ -1,4 +1,4 @@
-lliurex-auto-upgrade (0.15) jammy; urgency=medium
+lliurex-auto-upgrade (0.15.1) jammy; urgency=medium
 
   * Fixing adobereader for cdc users 
 
