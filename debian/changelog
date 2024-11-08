@@ -1,3 +1,10 @@
+lliurex-auto-upgrade (0.3.11) focal; urgency=medium
+
+  * disabling adobereader-enu fix. there is no package available in 20.04 to
+    fix that problem
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 08 Nov 2024 10:32:08 +0100
+
 lliurex-auto-upgrade (0.3.10) focal; urgency=medium
 
   * adobereader-enu fixer 
