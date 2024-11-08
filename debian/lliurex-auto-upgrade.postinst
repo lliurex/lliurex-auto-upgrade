@@ -19,7 +19,7 @@ case "$1" in
 	# this might be the first of many
 	
 	RC=0
-	dpkg -l | grep adobereader-enu:i386 || RC = 1
+	dpkg -l | grep adobereader-enu:i386 || RC=1
 	
 	if [ "$RC" = "0" ];then
 		touch /etc/lliurex-auto-upgrade/tags/adobereader-enu-cdc-fixer
