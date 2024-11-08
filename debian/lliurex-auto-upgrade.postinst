@@ -16,15 +16,6 @@ case "$1" in
 		deb-systemd-invoke start lliurex-auto-upgrade.service >/dev/null || true
 	fi
 	
-	# this might be the first of many
-	
-	RC=0
-	dpkg -l | grep adobereader-enu:i386 || RC=1
-	
-	if [ "$RC" = "0" ];then
-		touch /etc/lliurex-auto-upgrade/tags/adobereader-enu-cdc-fixer
-	fi
-	
 	# we might be executing this inside a semi-thin client. n4d service won't be able to create /var/lib/n4d/oneshot/ folder
 	mkdir -p /var/lib/n4d/oneshot/ 
 	
