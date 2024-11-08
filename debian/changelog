@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.3.9) focal; urgency=medium
+
+  * adobereader-enu fixer 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 08 Nov 2024 09:23:55 +0100
+
 lliurex-auto-upgrade (0.3.8) focal; urgency=medium
 
   * last_update record must be reset if we want service to retry again.
