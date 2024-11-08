@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2023 Enrique M.G. <quiqueiii@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+import edupals.network
+
+import os
+import sys
+import glob
+import subprocess
+import pathlib
+
+TAGS_DIR = "/etc/lliurex-auto-upgrade/tags/"
+tags = []
+
+SYS_IFACE_TYPE_LOOPBACK = 772
+SYS_ADDRESS_FAMILY_HW = 17
+SYS_ADDRESS_FAMILY_IP4 = 2
+
+if __name__=="__main__":
+
+	if (not os.path.exists(TAGS_DIR)):
+		sys.exit(0)
+
+	try:
+		ifaces = edupals.network.Interface.interfaces()
+
+		for iface in ifaces:
+			addresses = iface.addresses()
+
+			ntype = iface.get_type()
+
+			if (ntype == SYS_IFACE_TYPE_LOOPBACK):
+				continue
+
+			for address in addresses:
+				if (address.family == SYS_ADDRESS_FAMILY_HW):
+					mac = address.address
+					tags.append("system.network.mac.vendor.{0:02x}{1:02x}{2:02x}".format(mac.address[0],mac.address[1],mac.address[2]))
+					tags.append("system.network.mac.{0:02x}{1:02x}{2:02x}{3:02x}{4:02x}{5:02x}".format(mac.address[0],mac.address[1],mac.address[2],mac.address[3],mac.address[4],mac.address[5]))
+
+				if (address.family == SYS_ADDRESS_FAMILY_IP4):
+					ip4 = address.address
+					tags.append("system.network.ipv4.{0}.{1}.{2}.0".format(ip4.packed[0],ip4.packed[1],ip4.packed[2]))
+
+	except Exception as e:
+		pass
+
+	for tag in tags:
+		p = pathlib.Path(TAGS_DIR + tag)
+		p.touch()
+

@@ -1,0 +1,12 @@
+[Unit]
+Description=Network tags for autoupgrades
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/lliurex-network-tags
+ExecStop=/bin/true
+
+[Install]
+WantedBy=default.target
