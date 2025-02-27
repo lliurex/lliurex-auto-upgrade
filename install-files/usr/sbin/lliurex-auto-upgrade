@@ -16,13 +16,13 @@ class LliurexAutoUpgrade:
 	
 	DEBUG=True
 	SYSLOG=True
+	ENFORCE_LLIUREX_NET=True
+	IGNORE_UPDATE_ERROR=True
 	RANDOM_SLEEP_WINDOW=30
 	SLEEP_TIME=60*40
 	ALTERNATE_SLEEP_TIME=60
 	MAX_RETRIES_FIRST_UPDATE=10
-	
-	IGNORE_UPDATE_ERROR=True
-	
+		
 	def __init__(self):
 		
 		self.actions_url="http://svnlliurexnet.gva.es/leia/public/lliurex_actions.json"
@@ -152,11 +152,25 @@ class LliurexAutoUpgrade:
 		
 	#def is_auto_update_configured
 	
-	def is_package_installed(self,package):
+	def is_package_from_lliurex_net(self,package):
+		
+		if not LliurexAutoUpgrade.ENFORCE_LLIUREX_NET:
+			# if we dont enforce lliurex.net this check always returns true
+			return True
 		
 		if package in self.apt_cache:
 			if self.apt_cache[package].candidate.uri.startswith("http://lliurex.net/"):
-				return self.apt_cache[package].is_installed
+				return True
+				
+		return False
+		
+	#def is_package_from_lliurexnet
+	
+	def is_package_installed(self,package):
+		
+		if package in self.apt_cache:
+			return self.apt_cache[package].is_installed
+			
 		return False
 		
 	#def is_package_installed
@@ -164,7 +178,7 @@ class LliurexAutoUpgrade:
 	def is_package_upgradable(self,package):
 		
 		if package in self.apt_cache:
-			if self.apt_cache[package].candidate.uri.startswith("http://lliurex.net/"):
+			if self.is_package_from_lliurex_net(package):
 				return self.apt_cache[package].is_upgradable
 			
 		return False
@@ -302,7 +316,7 @@ class LliurexAutoUpgrade:
 		self.packages_to_enforce=False
 		
 		for package in self.my_actions["enforce"]:
-			if package in self.apt_cache and not self.is_package_installed(package):
+			if package in self.apt_cache and not self.is_package_installed(package) and self.is_package_from_lliurex_net(package):
 				self.pprint("Marking %s enforce..."%package)
 				self.packages_to_enforce=True
 				self.apt_cache[package].mark_install()
