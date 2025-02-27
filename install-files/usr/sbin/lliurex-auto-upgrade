@@ -26,6 +26,8 @@ class LliurexAutoUpgrade:
 	def __init__(self):
 		
 		self.actions_url="http://svnlliurexnet.gva.es/leia/public/lliurex_actions.json"
+		self.hostname="svnlliurexnet.gva.es"
+		self.org_id="VATES-S4611001A"
 		self.tags_dir="/etc/lliurex-auto-upgrade/tags/"
 		self.disable_file="/etc/lliurex-auto-upgrade/disabled"
 		self.pid_file="/run/lliurex-auto-upgrade.pid"
@@ -63,11 +65,18 @@ class LliurexAutoUpgrade:
 							self.pprint("\tUpdating cache...")
 							try:
 								self.apt_cache.update()
+								# needs to be reopened after being updated
+								self.apt_cache.open()
 							except Exception as update_exc:
 								if LliurexAutoUpgrade.IGNORE_UPDATE_ERROR:
 									pass
 								else:
 									raise update_exc
+									
+							# this should not be necessary
+							#self.pprint("\tValidating %h certificate..."%self.hostname)
+							#self.check_certificate(self.hostname,self.org_id)
+							
 							self.pprint("\tGathering actions from server...")
 							self.my_actions=self.gather_actions()
 							self.print_my_actions()
@@ -146,7 +155,8 @@ class LliurexAutoUpgrade:
 	def is_package_installed(self,package):
 		
 		if package in self.apt_cache:
-			return self.apt_cache[package].is_installed
+			if self.apt_cache[package].candidate.uri.startswith("http://lliurex.net/"):
+				return self.apt_cache[package].is_installed
 		return False
 		
 	#def is_package_installed
@@ -154,11 +164,42 @@ class LliurexAutoUpgrade:
 	def is_package_upgradable(self,package):
 		
 		if package in self.apt_cache:
-			return self.apt_cache[package].is_upgradable
+			if self.apt_cache[package].candidate.uri.startswith("http://lliurex.net/"):
+				return self.apt_cache[package].is_upgradable
 			
 		return False
 		
 	#def is_package_upgradable
+	
+	def check_certificate(self,hostname,org_id):
+		
+		cert=None
+		verified=False
+		context=ssl.create_default_context()
+		try:
+			with context.wrap_socket(socket.socket(), server_hostname=hostname) as s:
+				s.connect((hostname,443))
+				cert = s.getpeercert()
+				
+			if not cert:
+				self.pprint("Failed to get certificate")
+				
+			if "subject" not in cert:
+				self.pprint("Invalid certificate data")
+			for item in cert["subject"]:
+				key,value = item[0]
+				if key=="organizationIdentifier":
+					verified = value==org_id
+			
+		except Exception as e:
+			self.pprint("Failed to verify certificate.")
+			
+		if not verfied:
+			raise Exception("Failed to verify certificate.")
+		
+		return verified
+		
+	#def check_certificate
 	
 	def get_actions_file(self,url=None):
 		
