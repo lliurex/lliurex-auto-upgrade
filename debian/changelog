@@ -1,3 +1,14 @@
+lliurex-auto-upgrade (0.3.13) focal; urgency=medium
+
+  * mark_install needed lliurex.net check as well
+  * beautified coded a little bit
+  * added is_package_from_lliurex_net function. Might come in handy in the
+    future
+  * Added variable to enable or disable lliurex.net protection. Defaults to
+    True (enabled)
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Thu, 27 Feb 2025 14:35:44 +0100
+
 lliurex-auto-upgrade (0.3.12) focal; urgency=medium
 
   * PAckages are only installed if they come frome lliurex.net
