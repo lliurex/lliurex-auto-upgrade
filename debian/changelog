@@ -1,3 +1,10 @@
+lliurex-auto-upgrade (0.3.12) focal; urgency=medium
+
+  * PAckages are only installed if they come frome lliurex.net
+  * apt cache is reopened after being updated 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Thu, 27 Feb 2025 14:12:36 +0100
+
 lliurex-auto-upgrade (0.3.11) focal; urgency=medium
 
   * disabling adobereader-enu fix. there is no package available in 20.04 to
