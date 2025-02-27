@@ -1,3 +1,10 @@
+lliurex-auto-upgrade (0.16) jammy; urgency=medium
+
+  * Packages are only installed if they come from lliurex.net
+  * apt cache is reopened after being updated. 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Thu, 27 Feb 2025 14:09:20 +0100
+
 lliurex-auto-upgrade (0.15.1) jammy; urgency=medium
 
   * Fixing adobereader for cdc users 
