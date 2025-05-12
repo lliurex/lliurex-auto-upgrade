@@ -24,7 +24,7 @@ def llx_gva_hwdb():
 		for key in tmp:
 			k = key.split(":")
 			if (k[0] in data):
-				data[k[0]] = k[1]
+				data[k[0]] = k[1].replace(" ","_")
 	except:
 		pass
 
@@ -38,8 +38,9 @@ def tag_system():
 	if (os.path.exists("/sys/firmware/efi")):
 		tags.append("system.platform.firmware.uefi")
 
-		if (os.path.exists("/boot/efi/EFI/lliurex-21/shimx64.efi")):
-			tags.append("system.platform.firmware.uefi.shim")
+		# this needs a rethink
+		#if (os.path.exists("/boot/efi/EFI/lliurex-21/shimx64.efi")):
+			#tags.append("system.platform.firmware.uefi.shim")
 	else:
 		tags.append("system.platform.firmware.legacy")
 
