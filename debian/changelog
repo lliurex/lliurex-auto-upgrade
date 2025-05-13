@@ -1,3 +1,10 @@
+lliurex-auto-upgrade (0.25) noble; urgency=medium
+
+  * Added lliurex-version tags
+  * Renamed services
+
+ -- Enrique Medina Gremaldos <quique@necos.es>  Tue, 13 May 2025 11:54:28 +0200
+
 lliurex-auto-upgrade (0.24) noble; urgency=medium
 
   * Initial release for Noble
