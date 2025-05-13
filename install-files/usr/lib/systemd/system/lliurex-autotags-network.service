@@ -5,7 +5,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/sbin/lliurex-network-tags
+ExecStart=/usr/sbin/lliurex-autotags-network
 ExecStop=/bin/true
 
 [Install]

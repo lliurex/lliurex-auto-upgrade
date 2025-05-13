@@ -3,7 +3,7 @@ Description=System tags for autoupgrades
 
 [Service]
 Type=oneshot
-ExecStart=/usr/sbin/lliurex-system-tags
+ExecStart=/usr/sbin/lliurex-autotags-system
 ExecStop=/bin/true
 
 [Install]
