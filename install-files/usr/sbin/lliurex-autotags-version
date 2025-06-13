@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2025 Enrique M.G. <quique@necos.es>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+import os
+import sys
+import glob
+import subprocess
+import pathlib
+
+TAGS_DIR = "/etc/lliurex-auto-upgrade/tags/"
+tags = []
+
+def clear_tags():
+	for path in (glob.glob(TAGS_DIR+"lliurex.version.*")):
+		os.remove(path)
+
+if __name__=="__main__":
+
+	if (not os.path.exists(TAGS_DIR)):
+		sys.exit(0)
+
+	try:
+		clear_tags()
+		tmp = subprocess.check_output(["lliurex-version"])
+		tmp = tmp.decode("utf-8").strip()
+		for q in tmp.split(","):
+			tags.append("lliurex.version." + q.strip())
+
+	except Exception as e:
+		pass
+
+
+	for tag in tags:
+		p = pathlib.Path(TAGS_DIR + tag)
+		p.touch()
+
