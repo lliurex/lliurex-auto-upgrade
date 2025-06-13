@@ -1,8 +1,15 @@
-lliurex-auto-upgrade (0.24.1) noble; urgency=medium
+lliurex-auto-upgrade (0.25.1) noble; urgency=medium
 
-  * Merge with master. Restored wantedby 
+  * Restored wantedby in main systemd unit 
 
- -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 13 Jun 2025 15:28:32 +0200
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 13 Jun 2025 15:29:40 +0200
+
+lliurex-auto-upgrade (0.25) noble; urgency=medium
+
+  * Added lliurex-version tags
+  * Renamed services
+
+ -- Enrique Medina Gremaldos <quique@necos.es>  Tue, 13 May 2025 11:54:28 +0200
 
 lliurex-auto-upgrade (0.24) noble; urgency=medium
 
