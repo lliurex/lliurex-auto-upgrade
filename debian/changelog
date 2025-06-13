@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.24.1) noble; urgency=medium
+
+  * Merge with master. Restored wantedby 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 13 Jun 2025 15:28:32 +0200
+
 lliurex-auto-upgrade (0.24) noble; urgency=medium
 
   * Initial release for Noble
