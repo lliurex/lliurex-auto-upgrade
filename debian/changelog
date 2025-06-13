@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.16.2) jammy; urgency=medium
+
+  * Fixed systemd unit 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 13 Jun 2025 14:48:20 +0200
+
 lliurex-auto-upgrade (0.16.1) jammy; urgency=medium
 
   * mark_install needed lliurex.net check as well
