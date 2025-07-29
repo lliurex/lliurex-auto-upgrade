@@ -1,0 +1,10 @@
+[Unit]
+Description=lliurex-version tags for autoupgrades
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/lliurex-autotags-version
+ExecStop=/bin/true
+
+[Install]
+WantedBy=default.target

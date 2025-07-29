@@ -19,12 +19,18 @@ SYS_IFACE_TYPE_LOOPBACK = 772
 SYS_ADDRESS_FAMILY_HW = 17
 SYS_ADDRESS_FAMILY_IP4 = 2
 
+def clear_tags():
+	for path in (glob.glob(TAGS_DIR+"network.*")):
+		os.remove(path)
+
 if __name__=="__main__":
 
 	if (not os.path.exists(TAGS_DIR)):
 		sys.exit(0)
 
 	try:
+		clear_tags()
+
 		ifaces = edupals.network.Interface.interfaces()
 
 		for iface in ifaces:
@@ -38,12 +44,12 @@ if __name__=="__main__":
 			for address in addresses:
 				if (address.family == SYS_ADDRESS_FAMILY_HW):
 					mac = address.address
-					tags.append("system.network.mac.vendor.{0:02x}{1:02x}{2:02x}".format(mac.address[0],mac.address[1],mac.address[2]))
-					tags.append("system.network.mac.{0:02x}{1:02x}{2:02x}{3:02x}{4:02x}{5:02x}".format(mac.address[0],mac.address[1],mac.address[2],mac.address[3],mac.address[4],mac.address[5]))
+					tags.append("network.mac.vendor.{0:02x}{1:02x}{2:02x}".format(mac.address[0],mac.address[1],mac.address[2]))
+					tags.append("network.mac.{0:02x}{1:02x}{2:02x}{3:02x}{4:02x}{5:02x}".format(mac.address[0],mac.address[1],mac.address[2],mac.address[3],mac.address[4],mac.address[5]))
 
 				if (address.family == SYS_ADDRESS_FAMILY_IP4):
 					ip4 = address.address
-					tags.append("system.network.ipv4.{0}.{1}.{2}.0".format(ip4.packed[0],ip4.packed[1],ip4.packed[2]))
+					tags.append("network.ipv4.{0}.{1}.{2}.0".format(ip4.packed[0],ip4.packed[1],ip4.packed[2]))
 
 	except Exception as e:
 		pass
