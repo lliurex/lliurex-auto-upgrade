@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.3.14) focal; urgency=medium
+
+  * merge with upstream. Fixes service enable 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Tue, 29 Jul 2025 13:43:57 +0200
+
 lliurex-auto-upgrade (0.3.13) focal; urgency=medium
 
   * mark_install needed lliurex.net check as well
