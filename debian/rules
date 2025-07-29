@@ -22,5 +22,5 @@
 #	dh_auto_configure -- #	-DCMAKE_LIBRARY_PATH=$(DEB_HOST_MULTIARCH)
 
 override_dh_systemd_start:
-	#dh_systemd_start --no-start --no-restart-after-upgrade lliurex-auto-upgrade.service
+	dh_systemd_start --no-start --no-restart-after-upgrade lliurex-auto-upgrade.service
 
