@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+case "$2" in
+    up)
+        /usr/sbin/lliurex-autotags-network
+    ;;
+
+    down)
+        /usr/sbin/lliurex-autotags-network
+    ;;
+
+    *)
+    ;;
+esac

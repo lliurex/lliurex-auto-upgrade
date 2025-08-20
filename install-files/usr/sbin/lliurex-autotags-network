@@ -11,6 +11,9 @@ import sys
 import glob
 import subprocess
 import pathlib
+import fcntl
+
+LOCK_FILE = "/var/run/lliurex-autotags-network.lock"
 
 TAGS_DIR = "/etc/lliurex-auto-upgrade/tags/"
 tags = []
@@ -23,12 +26,23 @@ def clear_tags():
 	for path in (glob.glob(TAGS_DIR+"network.*")):
 		os.remove(path)
 
+def lock():
+	fd = os.open(LOCK_FILE, os.O_RDWR | os.O_CREAT)
+	fcntl.flock(fd, fcntl.LOCK_EX)
+
+	return fd
+
+def release(fd):
+	fcntl.flock(fd, fcntl.LOCK_UN)
+	os.close(fd)
+
 if __name__=="__main__":
 
 	if (not os.path.exists(TAGS_DIR)):
 		sys.exit(0)
 
 	try:
+		lock_fd = lock()
 		clear_tags()
 
 		ifaces = edupals.network.Interface.interfaces()
@@ -50,6 +64,8 @@ if __name__=="__main__":
 				if (address.family == SYS_ADDRESS_FAMILY_IP4):
 					ip4 = address.address
 					tags.append("network.ipv4.{0}.{1}.{2}.0".format(ip4.packed[0],ip4.packed[1],ip4.packed[2]))
+
+		release(lock_fd)
 
 	except Exception as e:
 		pass
