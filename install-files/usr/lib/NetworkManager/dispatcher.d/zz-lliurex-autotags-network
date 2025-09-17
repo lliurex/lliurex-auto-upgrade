@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 
 case "$2" in
+    dhcp4-change)
+        /usr/sbin/lliurex-autotags-network
+    ;;
+
     up)
         /usr/sbin/lliurex-autotags-network
     ;;
