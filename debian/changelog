@@ -1,3 +1,12 @@
+lliurex-auto-upgrade (0.25.2) noble; urgency=medium
+
+  * Enabling autotag systemd units.
+  * Improved network detection. Aims to check if system is in administrative
+    network
+  * Fixed gva networks tag names
+
+ -- Luis Garcia Gisbert <luisgg@gmail.com>  Thu, 18 Sep 2025 13:19:46 +0200
+
 lliurex-auto-upgrade (0.25.1) noble; urgency=medium
 
   * Restored wantedby in main systemd unit 
