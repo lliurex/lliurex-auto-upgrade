@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.17.1) jammy; urgency=medium
+
+  * Fixed gva networks tag names
+
+ -- Luis Garcia Gisbert <luisgg@gmail.com>  Thu, 18 Sep 2025 12:14:55 +0200
+
 lliurex-auto-upgrade (0.17) jammy; urgency=medium
 
   * Enabling autotag systemd units.
