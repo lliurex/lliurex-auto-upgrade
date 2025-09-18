@@ -75,8 +75,8 @@ def tag_gva_networks():
 
 	# compile networks in a single dictionary, using tag as key
 	gva_networks = {
-		"gva.secretaria" : secretaria_hosts,
-		"gva.aulas" : aulas_hosts
+		"gva-secretaria" : secretaria_hosts,
+		"gva-aulas" : aulas_hosts
 		}
 
 	NOGVA_LABEL = "no-gva"
