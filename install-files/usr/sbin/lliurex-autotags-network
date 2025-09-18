@@ -75,11 +75,11 @@ def tag_gva_networks():
 
 	# compile networks in a single dictionary, using tag as key
 	gva_networks = {
-		"gva-secretaria" : secretaria_hosts,
-		"gva-aulas" : aulas_hosts
+		"network.gva-secretaria" : secretaria_hosts,
+		"network.gva-aulas" : aulas_hosts
 		}
 
-	NOGVA_LABEL = "no-gva"
+	NOGVA_LABEL = "network.no-gva"
 
 	# loop and check
 	gva_net_detected = False
@@ -154,12 +154,12 @@ if __name__=="__main__":
 
 					tags.append("network.ipv4.{0}.{1}.{2}.{3}".format(ip4.packed[0],ip4.packed[1],ip4.packed[2],ip4.packed[3]))
 
+		tag_gva_networks()
+
 		release(lock_fd)
 
 	except Exception as e:
 		pass
-
-	tag_gva_networks()
 
 	for tag in tags:
 		p = pathlib.Path(TAGS_DIR + tag)
