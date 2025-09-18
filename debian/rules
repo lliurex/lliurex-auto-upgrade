@@ -22,12 +22,6 @@
 #	dh_auto_configure -- #	-DCMAKE_LIBRARY_PATH=$(DEB_HOST_MULTIARCH)
 
 
-override_dh_systemd_enable:
-	dh_systemd_enable
-	dh_systemd_enable $(DESTDIR)/usr/lib/systemd/system/lliurex-autotags-system.service
-	dh_systemd_enable $(DESTDIR)/usr/lib/systemd/system/lliurex-autotags-version.service
-	dh_systemd_enable $(DESTDIR)/usr/lib/systemd/system/lliurex-autotags-network.service
-
 
 override_dh_systemd_start:
 	dh_systemd_start --no-start --no-restart-after-upgrade lliurex-auto-upgrade.service
