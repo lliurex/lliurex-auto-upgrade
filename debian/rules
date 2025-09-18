@@ -24,14 +24,14 @@
 
 override_dh_systemd_enable:
 	dh_systemd_enable
-	dh_systemd_enable /usr/lib/systemd/system/lliurex-autotags-system.service
-	dh_systemd_enable /usr/lib/systemd/system/lliurex-autotags-version.service
-	dh_systemd_enable /usr/lib/systemd/system/lliurex-autotags-network.service
+	dh_systemd_enable lliurex-autotags-system.service
+	dh_systemd_enable lliurex-autotags-version.service
+	dh_systemd_enable lliurex-autotags-network.service
 
 
 override_dh_systemd_start:
 	dh_systemd_start --no-start --no-restart-after-upgrade lliurex-auto-upgrade.service
-	dh_systemd_start /usr/lib/systemd/system/lliurex-autotags-system.service
-	dh_systemd_start /usr/lib/systemd/system/lliurex-autotags-version.service
-	dh_systemd_start /usr/lib/systemd/system/lliurex-autotags-network.service
+	dh_systemd_start lliurex-autotags-system.service
+	dh_systemd_start lliurex-autotags-version.service
+	dh_systemd_start lliurex-autotags-network.service
 
