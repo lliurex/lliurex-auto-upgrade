@@ -10,7 +10,7 @@ Vcs-Browser: https://github.com/lliurex/lliurex-auto-upgrade
 Package: lliurex-auto-upgrade
 Architecture: all
 Pre-Depends: n4d (>=0.952)
-Depends: python3, python3-psutil, python3-requests, python3-apt, python3-edupals-base, python3-dnspython
+Depends: python3, python3-psutil, python3-requests, python3-apt, python3-edupals-base, llx-gva-hwdb, lliurex-base-files, python3-dnspython
 Description: LliureX auto Upgrade service
   This package maintains a remote list of packages updated.
 
