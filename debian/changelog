@@ -1,3 +1,10 @@
+lliurex-auto-upgrade (0.26.0) noble; urgency=medium
+
+  * Added a secure boot tag
+  * Fixed hwdb bug when model had several names split with a slash
+
+ -- Enrique Medina Gremaldos <quique@necos.es>  Thu, 02 Oct 2025 09:58:33 +0200
+
 lliurex-auto-upgrade (0.25.2) noble; urgency=medium
 
   * Enabling autotag systemd units.
