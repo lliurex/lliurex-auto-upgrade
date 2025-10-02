@@ -1,3 +1,10 @@
+lliurex-auto-upgrade (0.26.0) jammy; urgency=medium
+
+  * Added a secure boot tag
+  * Fixed hwdb bug when model had several names split with a slash
+
+ -- Enrique Medina Gremaldos <quique@necos.es>  Thu, 02 Oct 2025 09:31:32 +0200
+
 lliurex-auto-upgrade (0.17.1) jammy; urgency=medium
 
   * Fixed gva networks tag names
