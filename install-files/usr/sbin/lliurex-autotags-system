@@ -9,10 +9,36 @@ import sys
 import glob
 import subprocess
 import pathlib
+import re
 
 TAGS_DIR = "/etc/lliurex-auto-upgrade/tags/"
 tags = []
 model = "unknown"
+
+def is_tpm2():
+	tpm = False
+	# main case: file tpm_version_major is available
+	tpm_file="/sys/class/tpm/tpm0/tpm_version_major"
+	if (os.path.exists(tpm_file)) :
+		f = open(tpm_file,"r")
+		vstring = f.read(1)
+		# check for integer value
+		if (re.search('^[0-9]*$', vstring)):
+			tpm_version=int(vstring)
+			if (tpm_version >= 2):
+				tpm = True
+		f.close()
+	else:
+		# alternative: search description for 'TPM 2' string
+		for tpm_file in [ "/sys/class/tpm/tpm0/device/firmware_node/description", "/sys/class/tpm/tpm0/device/description" ] :
+			if (os.path.exists(tpm_file)) :
+				f = open(tpm_file,"r")
+				vstring = f.readline()
+				# check for TPM 2 string
+				if (re.search('TPM 2', vstring)):
+					tpm = True
+				f.close()
+	return tpm
 
 def is_secure_boot():
 	sb = False
@@ -52,6 +78,9 @@ def tag_system():
 
 		if (is_secure_boot()):
 			tags.append("system.platform.firmware.uefi.secureboot")
+
+		if (is_tpm2()):
+			tags.append("system.platform.tpm2")
 
 		# this needs a rethink
 		#if (os.path.exists("/boot/efi/EFI/lliurex-21/shimx64.efi")):
