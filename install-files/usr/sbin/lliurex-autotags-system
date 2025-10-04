@@ -79,9 +79,6 @@ def tag_system():
 		if (is_secure_boot()):
 			tags.append("system.platform.firmware.uefi.secureboot")
 
-		if (is_tpm2()):
-			tags.append("system.platform.tpm2")
-
 		# this needs a rethink
 		#if (os.path.exists("/boot/efi/EFI/lliurex-21/shimx64.efi")):
 			#tags.append("system.platform.firmware.uefi.shim")
@@ -97,6 +94,10 @@ def tag_system():
 	for model in models:
 		tags.append("system.gva.model."+model)
 	tags.append("system.gva.format."+hwdb["format"])
+
+	if (is_tpm2()):
+		tags.append("system.platform.tpm2")
+
 
 
 if __name__=="__main__":
