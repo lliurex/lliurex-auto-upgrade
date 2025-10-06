@@ -1,3 +1,10 @@
+lliurex-auto-upgrade (0.27.0) noble; urgency=medium
+
+  * Added a TPM2 label
+  * Fix GVA network detection
+
+ -- Enrique Medina Gremaldos <quique@necos.es>  Mon, 06 Oct 2025 10:13:14 +0200
+
 lliurex-auto-upgrade (0.26.0) noble; urgency=medium
 
   * Added a secure boot tag
