@@ -154,7 +154,8 @@ if __name__=="__main__":
 
 					tags.append("network.ipv4.{0}.{1}.{2}.{3}".format(ip4.packed[0],ip4.packed[1],ip4.packed[2],ip4.packed[3]))
 
-		tag_gva_networks()
+		if (edupals.network.get_default_gateway()):
+			tag_gva_networks()
 
 		release(lock_fd)
 
