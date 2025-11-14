@@ -10,7 +10,7 @@ import sys
 import psutil
 import subprocess
 import syslog
-
+import dbus
 
 class LliurexAutoUpgrade:
 	
@@ -35,6 +35,10 @@ class LliurexAutoUpgrade:
 		self.packages_to_enforce=False
 		self.random_sleep_seed=int(random.random()*LliurexAutoUpgrade.RANDOM_SLEEP_WINDOW)
 		self.last_update=None
+		
+		bus=dbus.SystemBus()
+		obj=bus.get_object("org.freedesktop.login1","/org/freedesktop/login1")
+		manager = dbus.Interface(obj, "org.freedesktop.login1.Manager")
 		
 		self.write_pid()
 		
@@ -82,7 +86,15 @@ class LliurexAutoUpgrade:
 							self.print_my_actions()
 							self.mark_update()
 							self.mark_enforce()
-							self.execute()
+							self.pprint("\tInhibiting shutdown...")
+							fd_shutdown = manager.Inhibit("shutdown","lliurex-auto-upgrade","Updating system","block")
+							real_fd=fd_shutdown.take()
+							try:
+								self.execute()
+							finally:
+								self.pprint("\tReleasing shutdown inhibition...")
+								os.close(real_fd)
+								
 							self.pprint("Done")
 							self.pprint("")
 						else:
