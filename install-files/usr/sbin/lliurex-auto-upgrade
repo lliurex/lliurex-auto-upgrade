@@ -10,7 +10,12 @@ import sys
 import psutil
 import subprocess
 import syslog
+import dbus
 
+import systemd.daemon 
+
+import pyinotify
+from pyinotify import WatchManager, Notifier, ThreadedNotifier, EventsCodes, ProcessEvent
 
 class LliurexAutoUpgrade:
 	
@@ -35,8 +40,14 @@ class LliurexAutoUpgrade:
 		self.packages_to_enforce=False
 		self.random_sleep_seed=int(random.random()*LliurexAutoUpgrade.RANDOM_SLEEP_WINDOW)
 		self.last_update=None
+		self.new_tag_signal=False
+		
+		bus=dbus.SystemBus()
+		obj=bus.get_object("org.freedesktop.login1","/org/freedesktop/login1")
+		manager = dbus.Interface(obj, "org.freedesktop.login1.Manager")
 		
 		self.write_pid()
+		self.start_inotify()
 		
 		if self.is_auto_update_configured():
 		
@@ -48,67 +59,95 @@ class LliurexAutoUpgrade:
 		
 			self.pprint("Starting...")
 			self.print_system_info()
+			current_sleep_counter=0
+			sleep_counter=1
 			
 			while True:
+				# Needed for systemd to know service is up and running
+				systemd.daemon.notify("READY=1")
 				
-				if self.last_update==None:
-					#we only sleep a random amount the first time
+				if self.last_update==None and not self.new_tag_signal:
+					systemd.daemon.notify("STATUS=First run sleep")
+					# we only sleep a random amount the first time
 					time.sleep(self.random_sleep_seed)
-				try:
-					self.remote_actions=self.get_actions_file()
-					if self.remote_actions!=None:
-						if self.last_update!=self.remote_actions["last_update"]:
-							self.pprint("Updating phase...")
-							self.pprint("")
-							self.last_update=self.remote_actions["last_update"]
-							self.apt_cache=apt.Cache()
-							self.pprint("\tUpdating cache...")
-							try:
-								self.apt_cache.update()
-								# needs to be reopened after being updated
-								self.apt_cache.open()
-							except Exception as update_exc:
-								if LliurexAutoUpgrade.IGNORE_UPDATE_ERROR:
-									pass
-								else:
-									raise update_exc
-									
-							# this should not be necessary
-							#self.pprint("\tValidating %h certificate..."%self.hostname)
-							#self.check_certificate(self.hostname,self.org_id)
-							
-							self.pprint("\tGathering actions from server...")
-							self.my_actions=self.gather_actions()
-							self.print_my_actions()
-							self.mark_update()
-							self.mark_enforce()
-							self.execute()
-							self.pprint("Done")
-							self.pprint("")
-						else:
-							self.pprint("Nothing to do")
-							self.pprint("")
 					
-					if self.remote_actions != None:
-						first_round_success=True
-						
-				except Exception as e:
-					self.pprint("Exception: %s"%str(e))
-						
+				current_sleep_counter+=1
 				
-				if first_round_success:
-					self.pprint("Sleeping...")
-					time.sleep(LliurexAutoUpgrade.SLEEP_TIME)
-				else:
-					error_count+=1
-					if error_count == LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE:
-						# next loop will wake in LliurexAutoUpgrade.SLEEP_TIME hour
-						first_round_success=True
+				if current_sleep_counter >= sleep_counter or self.new_tag_signal:
+						
+					self.new_tag_signal=False
+					current_sleep_counter=0
+					
+					try:
+						systemd.daemon.notify("STATUS=Checking remote file")
+						self.remote_actions=self.get_actions_file()
+						if self.remote_actions!=None:
+							if self.last_update!=self.remote_actions["last_update"]:
+								self.pprint("Updating phase...")
+								self.pprint("")
+								self.last_update=self.remote_actions["last_update"]
+								self.apt_cache=apt.Cache()
+								self.pprint("\tUpdating cache...")
+								try:
+									self.apt_cache.update()
+									# needs to be reopened after being updated
+									self.apt_cache.open()
+								except Exception as update_exc:
+									if LliurexAutoUpgrade.IGNORE_UPDATE_ERROR:
+										pass
+									else:
+										raise update_exc
+										
+								# this should not be necessary
+								#self.pprint("\tValidating %h certificate..."%self.hostname)
+								#self.check_certificate(self.hostname,self.org_id)
+								self.pprint("\tGathering actions from server...")
+								self.my_actions=self.gather_actions()
+								self.print_my_actions()
+								self.mark_update()
+								self.mark_enforce()
+								self.pprint("\tInhibiting shutdown...")
+								fd_shutdown = manager.Inhibit("shutdown","lliurex-auto-upgrade","Updating system","block")
+								real_fd=fd_shutdown.take()
+								try:
+									self.execute()
+								finally:
+									self.pprint("\tReleasing shutdown inhibition...")
+									os.close(real_fd)
+								self.pprint("Done")
+								self.pprint("")
+							else:
+								self.pprint("Nothing to do")
+								self.pprint("")
+								systemd.daemon.notify("STATUS=Nothing to do. Waiting for new remote file or tag")
+						
+						if self.remote_actions != None:
+							first_round_success=True
+							
+					except Exception as e:
+						self.pprint("Exception: %s"%str(e))
+							
+					
+					if first_round_success:
+						self.pprint("Sleeping...")
+						#time.sleep(LliurexAutoUpgrade.SLEEP_TIME)
+						sleep_counter=LliurexAutoUpgrade.SLEEP_TIME
 					else:
-						# we have to reset last_update value to force new try after sleeping
-						self.last_update=None
-					self.pprint("Sleeping a reduced time since we failed to complete first run on try %s/%s ..."%(error_count,LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE))
-					time.sleep(LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME)
+						error_count+=1
+						if error_count == LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE:
+							# next loop will wake in LliurexAutoUpgrade.SLEEP_TIME hour
+							first_round_success=True
+						else:
+							# we have to reset last_update value to force new try after sleeping
+							self.last_update=None
+						self.pprint("Sleeping a reduced time since we failed to complete first run on try %s/%s ..."%(error_count,LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE))
+						sleep_counter=LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME
+						#time.sleep(LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME)
+				else:
+					pass
+					#self.pprint("Sleeping... %s/%s"%(current_sleep_counter,sleep_counter))
+					
+				time.sleep(1)
 				
 		else:
 			self.pprint("'%s' exists, service is disabled. Exiting..."%self.disable_file)
@@ -142,6 +181,54 @@ class LliurexAutoUpgrade:
 		f.close()
 		
 	#def write_pid	
+
+	def start_inotify(self):
+
+		t=threading.Thread(target=self.__inotify,name="lliurex-auto-upgrade.start_inotify thread")
+		t.daemon=True
+		t.start()
+
+	#def start_inotify
+	
+	def __inotify(self):
+		
+		
+		wm=WatchManager()
+		mask=pyinotify.IN_CLOSE_WRITE
+			
+		class Process_handler(ProcessEvent):
+				
+			def __init__(self,main):
+				
+				self.main=main
+				
+			def process_IN_CLOSE_WRITE(self,event):
+
+				self.main.pprint(event.pathname)
+				self.main.pprint(event.name)
+				systemd.daemon.notify("STATUS=New tag %s detected. Forcing new loop"%event.name)
+				self.main.tags=self.main.get_tags()
+				self.main.print_system_info()
+				self.main.new_tag_signal=True
+				self.main.last_update=None
+	
+		notifier=Notifier(wm,Process_handler(self))
+		wdd=wm.add_watch(self.tags_dir,mask,rec=True)
+			
+		while True:
+			try:
+					
+				notifier.process_events()
+				if notifier.check_events():
+					notifier.read_events()
+				
+			except Exception as e:
+				self.pprint(e)
+				notifier.stop()
+					
+		return False
+	
+	#def _inotify	
 	
 	def is_auto_update_configured(self):
 		
@@ -343,11 +430,14 @@ class LliurexAutoUpgrade:
 	def execute(self):
 		
 		if self.packages_to_update or self.packages_to_enforce:
+			systemd.daemon.notify("STATUS=Checking apt/dpkg status before installing packages")
 			self.pprint("\tUpdating system...")
 			self.fixes_before_execution()
+			systemd.daemon.notify("STATUS=Installing packages")
 			self.pprint("\t\tInstalling updates...")
 			self.apt_cache.commit()
 		else:
+			systemd.daemon.notify("STATUS=Nothing to execute, everything is up to date")
 			self.pprint("")
 			self.pprint("\tNothing to execute. Everything is up to date")
 			self.pprint("")

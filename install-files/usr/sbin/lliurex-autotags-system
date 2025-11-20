@@ -9,13 +9,50 @@ import sys
 import glob
 import subprocess
 import pathlib
+import re
 
 TAGS_DIR = "/etc/lliurex-auto-upgrade/tags/"
 tags = []
 model = "unknown"
 
+def is_tpm2():
+	tpm = False
+	# main case: file tpm_version_major is available
+	tpm_file="/sys/class/tpm/tpm0/tpm_version_major"
+	if (os.path.exists(tpm_file)) :
+		f = open(tpm_file,"r")
+		vstring = f.read(1)
+		# check for integer value
+		if (re.search('^[0-9]*$', vstring)):
+			tpm_version=int(vstring)
+			if (tpm_version >= 2):
+				tpm = True
+		f.close()
+	else:
+		# alternative: search description for 'TPM 2' string
+		for tpm_file in [ "/sys/class/tpm/tpm0/device/firmware_node/description", "/sys/class/tpm/tpm0/device/description" ] :
+			if (os.path.exists(tpm_file)) :
+				f = open(tpm_file,"r")
+				vstring = f.readline()
+				# check for TPM 2 string
+				if (re.search('TPM 2', vstring)):
+					tpm = True
+				f.close()
+	return tpm
+
+def is_secure_boot():
+	sb = False
+	SB_VAR = "/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"
+	if (os.path.exists(SB_VAR)):
+		f = open(SB_VAR,"rb")
+		var = list(f.read())
+		if (var[4] == 1):
+			sb = True
+		f.close()
+	return sb
+
 def llx_gva_hwdb():
-	data = {"vendor":"unknown", "system":"unknown","model":"unknown","type":"unknown"}
+	data = {"vendor":"unknown", "system":"unknown","model":"unknown","format":"unknown"}
 
 	try:
 		tmp = subprocess.check_output(["llx-gva-hwdb","info"])
@@ -24,7 +61,8 @@ def llx_gva_hwdb():
 		for key in tmp:
 			k = key.split(":")
 			if (k[0] in data):
-				data[k[0]] = k[1].replace(" ","_")
+				tmp = k[1].replace(" ","_")
+				data[k[0]] = tmp.replace("/","_")
 	except:
 		pass
 
@@ -38,6 +76,9 @@ def tag_system():
 	if (os.path.exists("/sys/firmware/efi")):
 		tags.append("system.platform.firmware.uefi")
 
+		if (is_secure_boot()):
+			tags.append("system.platform.firmware.uefi.secureboot")
+
 		# this needs a rethink
 		#if (os.path.exists("/boot/efi/EFI/lliurex-21/shimx64.efi")):
 			#tags.append("system.platform.firmware.uefi.shim")
@@ -49,9 +90,14 @@ def tag_system():
 	tags.append("system.vendor."+hwdb["vendor"])
 	tags.append("system.product."+hwdb["system"])
 
-	model = hwdb["model"]
-	tags.append("system.gva.model."+model)
-	tags.append("system.gva.type."+hwdb["type"])
+	models = hwdb["model"].split("_")
+	for model in models:
+		tags.append("system.gva.model."+model)
+	tags.append("system.gva.format."+hwdb["format"])
+
+	if (is_tpm2()):
+		tags.append("system.platform.tpm2")
+
 
 
 if __name__=="__main__":
