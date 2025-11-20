@@ -25,6 +25,7 @@ class LliurexAutoUpgrade:
 	SYSLOG=True
 	ENFORCE_LLIUREX_NET=True
 	IGNORE_UPDATE_ERROR=True
+	ENABLE_TAG_NOTIFY=False
 	RANDOM_SLEEP_WINDOW=30
 	SLEEP_TIME=60*40
 	DPKG_SLEEP=1
@@ -50,7 +51,9 @@ class LliurexAutoUpgrade:
 		manager = dbus.Interface(obj, "org.freedesktop.login1.Manager")
 		
 		self.write_pid()
-		self.start_inotify()
+		
+		if LliurexAutoUpgrade.ENABLE_TAG_NOTIFY:
+			self.start_inotify()
 		
 		if self.is_auto_update_configured():
 		
@@ -111,6 +114,7 @@ class LliurexAutoUpgrade:
 								# this should not be necessary
 								#self.pprint("\tValidating %h certificate..."%self.hostname)
 								#self.check_certificate(self.hostname,self.org_id)
+								
 								self.pprint("\tGathering actions from server...")
 								self.my_actions=self.gather_actions()
 								self.print_my_actions()
@@ -430,16 +434,12 @@ class LliurexAutoUpgrade:
 			if package in self.apt_cache and not self.is_package_installed(package) and self.is_package_from_lliurex_net(package):
 				self.pprint("Marking %s enforce..."%package)
 				self.packages_to_enforce=True
-				print(self.apt_cache[package].marked_install)
 				self.apt_cache[package].mark_install()
-				print(self.apt_cache[package].marked_install)
 			else:
 				if self.is_package_upgradable(package):
 					self.pprint("Marking %s enforce..."%package)
 					self.packages_to_enforce=True
-					print(self.apt_cache[package].marked_upgrade)
 					self.apt_cache[package].mark_upgrade()
-					print(self.apt_cache[package].marked_upgrade)
 					
 	#def mark_enforce
 	
@@ -469,7 +469,7 @@ class LliurexAutoUpgrade:
 					package_list+="%s "%package
 			
 			systemd.daemon.notify("STATUS=Installing packages: %s"%package_list)
-			self.pprint("\t\tInstalling updates...")
+			self.pprint("\t\tInstalling packages: %s")
 			self.apt_cache.commit()
 			systemd.daemon.notify("STATUS=Installing finished. Waiting for new updates.")
 		else:
