@@ -1,3 +1,23 @@
+lliurex-auto-upgrade (0.27.0) jammy; urgency=medium
+
+  * Added TPM2 label
+  * Fix GVA network detection
+
+ -- Enrique Medina Gremaldos <quique@necos.es>  Mon, 06 Oct 2025 10:12:04 +0200
+
+lliurex-auto-upgrade (0.26.0) jammy; urgency=medium
+
+  * Added a secure boot tag
+  * Fixed hwdb bug when model had several names split with a slash
+
+ -- Enrique Medina Gremaldos <quique@necos.es>  Thu, 02 Oct 2025 09:31:32 +0200
+
+lliurex-auto-upgrade (0.17.1) jammy; urgency=medium
+
+  * Fixed gva networks tag names
+
+ -- Luis Garcia Gisbert <luisgg@gmail.com>  Thu, 18 Sep 2025 12:14:55 +0200
+
 lliurex-auto-upgrade (0.17) jammy; urgency=medium
 
   * Enabling autotag systemd units.
