@@ -12,6 +12,7 @@ import subprocess
 import syslog
 import dbus
 import threading
+import psutil
 
 import systemd.daemon 
 
@@ -24,8 +25,10 @@ class LliurexAutoUpgrade:
 	SYSLOG=True
 	ENFORCE_LLIUREX_NET=True
 	IGNORE_UPDATE_ERROR=True
+	ENABLE_TAG_NOTIFY=False
 	RANDOM_SLEEP_WINDOW=30
 	SLEEP_TIME=60*40
+	DPKG_SLEEP=1
 	ALTERNATE_SLEEP_TIME=60
 	MAX_RETRIES_FIRST_UPDATE=10
 		
@@ -48,7 +51,9 @@ class LliurexAutoUpgrade:
 		manager = dbus.Interface(obj, "org.freedesktop.login1.Manager")
 		
 		self.write_pid()
-		self.start_inotify()
+		
+		if LliurexAutoUpgrade.ENABLE_TAG_NOTIFY:
+			self.start_inotify()
 		
 		if self.is_auto_update_configured():
 		
@@ -80,9 +85,16 @@ class LliurexAutoUpgrade:
 					current_sleep_counter=0
 					
 					try:
+						
+						# wait for dpkgs to end
+						while self.find_process("dpkg"):
+							systemd.daemon.notify("STATUS=Waiting for dpkg to finish.")
+							time.sleep(LliurexAutoUpgrade.DPKG_SLEEP)
+								
 						systemd.daemon.notify("STATUS=Checking remote file")
 						self.remote_actions=self.get_actions_file()
 						if self.remote_actions!=None:
+							
 							if self.last_update!=self.remote_actions["last_update"]:
 								self.pprint("Updating phase...")
 								self.pprint("")
@@ -102,6 +114,7 @@ class LliurexAutoUpgrade:
 								# this should not be necessary
 								#self.pprint("\tValidating %h certificate..."%self.hostname)
 								#self.check_certificate(self.hostname,self.org_id)
+								
 								self.pprint("\tGathering actions from server...")
 								self.my_actions=self.gather_actions()
 								self.print_my_actions()
@@ -120,7 +133,7 @@ class LliurexAutoUpgrade:
 							else:
 								self.pprint("Nothing to do")
 								self.pprint("")
-								systemd.daemon.notify("STATUS=Nothing to do. Waiting for new remote file or tag")
+								systemd.daemon.notify("STATUS=Nothing to execute. Waiting for new updates.")
 						
 						if self.remote_actions != None:
 							first_round_success=True
@@ -165,6 +178,19 @@ class LliurexAutoUpgrade:
 			syslog.syslog("[LAU] %s"%str(data).replace("\t","    "))
 		
 	#def pprint
+
+	def find_process(self,name,strict=True):
+		
+		for proc in psutil.process_iter():
+			if strict:
+				if name.lower()== proc.name().lower():
+					return True
+			else:
+				if name.lower() in proc.name().lower():
+					return True
+		return False
+		
+	#def find_process
 	
 	def write_pid(self):
 		
@@ -247,7 +273,7 @@ class LliurexAutoUpgrade:
 			return True
 		
 		if package in self.apt_cache:
-			if self.apt_cache[package].candidate.uri.startswith("http://lliurex.net/"):
+			if self.apt_cache[package].candidate.uri !=None and self.apt_cache[package].candidate.uri.startswith("http://lliurex.net/"):
 				return True
 				
 		return False
@@ -395,6 +421,7 @@ class LliurexAutoUpgrade:
 			if self.is_package_upgradable(package):
 				self.pprint("Marking %s update..."%package)
 				self.apt_cache[package].mark_upgrade()
+				print(dir(self.apt_cache[package]))
 				self.packages_to_update=True
 				
 	#def mark_update
@@ -434,11 +461,19 @@ class LliurexAutoUpgrade:
 			systemd.daemon.notify("STATUS=Checking apt/dpkg status before installing packages")
 			self.pprint("\tUpdating system...")
 			self.fixes_before_execution()
-			systemd.daemon.notify("STATUS=Installing packages")
-			self.pprint("\t\tInstalling updates...")
+			
+			package_list=""
+			
+			for package in self.apt_cache:
+				if self.apt_cache[package].marked_install or self.apt_cache[package].marked_upgrade:
+					package_list+="%s "%package
+			
+			systemd.daemon.notify("STATUS=Installing packages: %s"%package_list)
+			self.pprint("\t\tInstalling packages: %s")
 			self.apt_cache.commit()
+			systemd.daemon.notify("STATUS=Installing finished. Waiting for new updates.")
 		else:
-			systemd.daemon.notify("STATUS=Nothing to execute, everything is up to date")
+			systemd.daemon.notify("STATUS=Nothing to execute. Waiting for new updates.")
 			self.pprint("")
 			self.pprint("\tNothing to execute. Everything is up to date")
 			self.pprint("")
