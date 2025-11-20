@@ -2,6 +2,11 @@ lliurex-auto-upgrade (0.28.0) jammy; urgency=medium
 
   * Moved service to notify. Notifies steps to systemd  
   * Inhibits shutdown when installing packages
+  * Checks if dpkg is being executed before entering a loop
+  * Inotify to check if a new tag has been written. Disabled by default for
+    now.
+  * Outputs which packages are going to be installed.
+  * systemd status now shows what lliurex-auto-upgrade is doing
 
  -- Hector Garcia Huerta <hectorgh@gmail.com>  Thu, 20 Nov 2025 09:57:43 +0100
 
