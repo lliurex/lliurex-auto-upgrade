@@ -11,6 +11,12 @@ import sys
 import glob
 import subprocess
 import pathlib
+import fcntl
+#import ipaddress
+import dns.resolver
+from ipaddress import IPv4Address, IPv4Network
+
+LOCK_FILE = "/var/run/lliurex-autotags-network.lock"
 
 TAGS_DIR = "/etc/lliurex-auto-upgrade/tags/"
 tags = []
@@ -19,9 +25,103 @@ SYS_IFACE_TYPE_LOOPBACK = 772
 SYS_ADDRESS_FAMILY_HW = 17
 SYS_ADDRESS_FAMILY_IP4 = 2
 
+
+def tag_gva_networks():
+	# The selected host names resolve to different
+	# private IPs depending on the internal network
+
+	# Current IPs in GVA networks are:
+
+	# SECRETARIA (corporativa)
+	#  ldapad.edu.gva.es -> 192.168.81.12
+	#  lliurex.net -> 172.31.180.97
+
+	# AULAS (gestionada)
+	#  ldapad.edu.gva.es -> 10.239.3.6
+	#  lliurex.net -> 10.239.3.11
+
+	# NO GVA (INTERNET public addresses)
+	#  ldapad.edu.gva.es -> NONE
+	#  lliurex.net -> 195.77.20.178, 193.145.200.176
+
+	# The test consists of checking that DNS resolution
+	# returns private IPs. In addition, the class (A, B, or C)
+	# to which they belong is checked in order to determine
+	# the specific GVA network.
+
+	# DNS stuff
+	dns_timeout = 3 # timeout (sec) for DNS query
+	dns_resolver = dns.resolver.Resolver()
+
+	# IPv4 class networks
+	priv_classA = IPv4Network("10.0.0.0/8")
+	priv_classB = IPv4Network("172.16.0.0/12")
+	priv_classC = IPv4Network("192.168.0.0/16")
+
+	# hosts lists to check for each network
+	# key: hostname, value: list of expected networks 
+	secretaria_hosts = {
+		"lliurex.net" : [ priv_classB ],
+		"ldapad.edu.gva.es" : [ priv_classC ]
+		}
+	aulas_hosts = {
+		"lliurex.net" : [ priv_classA ],
+		"ldapad.edu.gva.es" : [ priv_classA ]
+		}
+	TEST_NOGVA_SAMPLE_hosts = {
+		"lliurex.net" : [ IPv4Network("193.145.200.0/24"), IPv4Network("195.77.20.0/24") ]
+		}
+
+
+	# compile networks in a single dictionary, using tag as key
+	gva_networks = {
+		"network.gva-secretaria" : secretaria_hosts,
+		"network.gva-aulas" : aulas_hosts
+		}
+
+	NOGVA_LABEL = "network.no-gva"
+
+	# loop and check
+	gva_net_detected = False
+	for label in gva_networks:
+		host_list = gva_networks[label]
+		test_passed = True
+		for host_name in host_list:
+			valid_networks = host_list[host_name]
+			for expected_network in valid_networks:
+				test_passed = False
+
+				try:
+					dns_answer = dns_resolver.resolve(host_name, lifetime = dns_timeout)
+					# extract (first) ip address and create an IPv4Address object
+					current_ip = IPv4Address(dns_answer[0].address)
+					# check (only if the test is not already passed)
+					if ( not test_passed and (current_ip in expected_network) ):
+							test_passed = True
+							gva_net_detected = True
+
+				except Exception as e:
+					pass
+
+		if ( test_passed ):
+			tags.append(label)
+
+	if ( not gva_net_detected ):
+		tags.append(NOGVA_LABEL)
+
 def clear_tags():
 	for path in (glob.glob(TAGS_DIR+"network.*")):
 		os.remove(path)
+
+def lock():
+	fd = os.open(LOCK_FILE, os.O_RDWR | os.O_CREAT)
+	fcntl.flock(fd, fcntl.LOCK_EX)
+
+	return fd
+
+def release(fd):
+	fcntl.flock(fd, fcntl.LOCK_UN)
+	os.close(fd)
 
 if __name__=="__main__":
 
@@ -29,11 +129,13 @@ if __name__=="__main__":
 		sys.exit(0)
 
 	try:
+		lock_fd = lock()
 		clear_tags()
 
 		ifaces = edupals.network.Interface.interfaces()
 
 		for iface in ifaces:
+
 			addresses = iface.addresses()
 
 			ntype = iface.get_type()
@@ -48,8 +150,14 @@ if __name__=="__main__":
 					tags.append("network.mac.{0:02x}{1:02x}{2:02x}{3:02x}{4:02x}{5:02x}".format(mac.address[0],mac.address[1],mac.address[2],mac.address[3],mac.address[4],mac.address[5]))
 
 				if (address.family == SYS_ADDRESS_FAMILY_IP4):
-					ip4 = address.address
-					tags.append("network.ipv4.{0}.{1}.{2}.0".format(ip4.packed[0],ip4.packed[1],ip4.packed[2]))
+					ip4 = edupals.network.get_network_ip(str(address.address),str(address.netmask))
+
+					tags.append("network.ipv4.{0}.{1}.{2}.{3}".format(ip4.packed[0],ip4.packed[1],ip4.packed[2],ip4.packed[3]))
+
+		if (edupals.network.get_default_gateway()):
+			tag_gva_networks()
+
+		release(lock_fd)
 
 	except Exception as e:
 		pass
