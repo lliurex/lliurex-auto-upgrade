@@ -1,4 +1,4 @@
-lliurex-auto-upgrade (0.28.0) jammy; urgency=medium
+lliurex-auto-upgrade (0.28.0) noble; urgency=medium
 
   * Moved service to notify. Notifies steps to systemd  
   * Inhibits shutdown when installing packages
@@ -10,17 +10,28 @@ lliurex-auto-upgrade (0.28.0) jammy; urgency=medium
 
  -- Hector Garcia Huerta <hectorgh@gmail.com>  Thu, 20 Nov 2025 09:57:43 +0100
 
-lliurex-auto-upgrade (0.27.0) jammy; urgency=medium
+lliurex-auto-upgrade (0.27.0) noble; urgency=medium
 
-  * Added TPM2 label
+  * Added a TPM2 label
   * Fix GVA network detection
 
- -- Enrique Medina Gremaldos <quique@necos.es>  Mon, 06 Oct 2025 10:12:04 +0200
+ -- Enrique Medina Gremaldos <quique@necos.es>  Mon, 06 Oct 2025 10:13:14 +0200
 
-lliurex-auto-upgrade (0.26.0) jammy; urgency=medium
+lliurex-auto-upgrade (0.26.0) noble; urgency=medium
 
   * Added a secure boot tag
   * Fixed hwdb bug when model had several names split with a slash
+
+ -- Enrique Medina Gremaldos <quique@necos.es>  Thu, 02 Oct 2025 09:58:33 +0200
+
+lliurex-auto-upgrade (0.25.2) noble; urgency=medium
+
+  * Enabling autotag systemd units.
+  * Improved network detection. Aims to check if system is in administrative
+    network
+  * Fixed gva networks tag names
+
+ -- Luis Garcia Gisbert <luisgg@gmail.com>  Thu, 18 Sep 2025 13:19:46 +0200
 
 lliurex-auto-upgrade (0.25.1) noble; urgency=medium
 
