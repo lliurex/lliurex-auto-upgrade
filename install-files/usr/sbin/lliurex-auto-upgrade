@@ -469,7 +469,7 @@ class LliurexAutoUpgrade:
 					package_list+="%s "%package
 			
 			systemd.daemon.notify("STATUS=Installing packages: %s"%package_list)
-			self.pprint("\t\tInstalling packages: %s")
+			self.pprint("\t\tInstalling packages: %s"%package_list)
 			self.apt_cache.commit()
 			systemd.daemon.notify("STATUS=Installing finished. Waiting for new updates.")
 		else:
