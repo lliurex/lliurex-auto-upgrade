@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.28.2) noble; urgency=medium
+
+  * Fixed missing depends 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 14 Jan 2026 11:14:25 +0100
+
 lliurex-auto-upgrade (0.28.1) noble; urgency=medium
 
   * Fixed notify service.
