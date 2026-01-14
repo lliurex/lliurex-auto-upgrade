@@ -1,6 +1,7 @@
-lliurex-auto-upgrade (0.28.1) jammy; urgency=medium
+lliurex-auto-upgrade (0.28.2) jammy; urgency=medium
 
   * Fixed missing depends 
+  * Fixed missing package list print
 
  -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 14 Jan 2026 11:13:45 +0100
 
