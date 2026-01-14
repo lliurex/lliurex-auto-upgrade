@@ -12,6 +12,8 @@ Restart=always
 RestartSec=5
 StartLimitBurst=10
 StartLimitInterval=200
+Type=notify
+NotifyAccess=main
 
 [Install]
 WantedBy=multi-user.target
