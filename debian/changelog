@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.28.1) jammy; urgency=medium
+
+  * Fixed missing depends 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 14 Jan 2026 11:13:45 +0100
+
 lliurex-auto-upgrade (0.28.0) jammy; urgency=medium
 
   * Moved service to notify. Notifies steps to systemd  
