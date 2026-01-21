@@ -21,10 +21,16 @@
 #override_dh_auto_configure:
 #	dh_auto_configure -- #	-DCMAKE_LIBRARY_PATH=$(DEB_HOST_MULTIARCH)
 
+
+override_dh_installdeb:
+	$(eval RELEASE_CODENAME := $(shell dpkg-parsechangelog -S Distribution))
+	sed -i 's/@@RELEASE@@/$(RELEASE_CODENAME)/g' debian/lliurex-auto-upgrade/usr/share/lliurex-auto-upgrade/sources/lliurex.list
+	dh_installdeb
+
+
 override_dh_systemd_start:
 	dh_systemd_start --no-start --no-restart-after-upgrade lliurex-auto-upgrade.service
 	dh_systemd_start lliurex-autotags-system.service
 	dh_systemd_start lliurex-autotags-version.service
 	dh_systemd_start lliurex-autotags-network.service
-
 
