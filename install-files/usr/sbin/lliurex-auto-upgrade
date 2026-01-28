@@ -13,8 +13,10 @@ import syslog
 import dbus
 import threading
 import psutil
+import argparse
+import signal
 
-import systemd.daemon 
+import systemd.daemon
 
 import pyinotify
 from pyinotify import WatchManager, Notifier, ThreadedNotifier, EventsCodes, ProcessEvent
@@ -46,6 +48,8 @@ class LliurexAutoUpgrade:
 		self.last_update=None
 		self.new_tag_signal=False
 		
+		signal.signal(signal.SIGUSR1, self.signal_handler)
+
 		bus=dbus.SystemBus()
 		obj=bus.get_object("org.freedesktop.login1","/org/freedesktop/login1")
 		manager = dbus.Interface(obj, "org.freedesktop.login1.Manager")
@@ -208,6 +212,11 @@ class LliurexAutoUpgrade:
 		f.close()
 		
 	#def write_pid	
+
+	def signal_handler(self,signum,frame):
+		self.pprint("Got me!")
+
+	#def signal_handler
 
 	def start_inotify(self):
 
@@ -504,5 +513,26 @@ class LliurexAutoUpgrade:
 
 
 if __name__=="__main__":
-	
-	lau=LliurexAutoUpgrade()
+
+	parser = argparse.ArgumentParser()
+	parser.add_argument("action",type=str,nargs="?",default="run")
+
+	args = parser.parse_args()
+
+	if (args.action == "refresh"):
+		pid_file = "/run/lliurex-auto-upgrade.pid"
+
+		if (os.path.exists(pid_file)):
+			try:
+				f = open(pid_file,"r")
+				pid = int(f.readline().strip())
+				f.close()
+				os.kill(pid,signal.SIGUSR1)
+			except:
+				sys.exit(1)
+
+
+		sys.exit(0)
+
+	if (args.action == "run"):
+		lau = LliurexAutoUpgrade()
