@@ -7,7 +7,7 @@ After=network-online.target
 [Service]
 Type=notify
 User=root
-ExecStart=/usr/sbin/lliurex-auto-upgrade
+ExecStart=/usr/sbin/lliurex-auto-upgrade serve
 StandardOutput=journal
 Restart=always
 RestartSec=5
