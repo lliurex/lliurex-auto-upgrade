@@ -5,19 +5,22 @@ import json
 import random
 import requests
 import apt
+import apt_pkg
 import time
 import sys
 import psutil
 import subprocess
 import syslog
 import dbus
+
 import threading
 import psutil
-
+import signal 
 import systemd.daemon 
 
 import pyinotify
 from pyinotify import WatchManager, Notifier, ThreadedNotifier, EventsCodes, ProcessEvent
+
 
 class LliurexAutoUpgrade:
 	
@@ -26,12 +29,15 @@ class LliurexAutoUpgrade:
 	ENFORCE_LLIUREX_NET=True
 	IGNORE_UPDATE_ERROR=True
 	ENABLE_TAG_NOTIFY=False
-	RANDOM_SLEEP_WINDOW=30
+	RANDOM_SLEEP_WINDOW=1
 	SLEEP_TIME=60*40
 	DPKG_SLEEP=1
 	ALTERNATE_SLEEP_TIME=60
 	MAX_RETRIES_FIRST_UPDATE=10
-		
+	MAX_ERROR_COUNTER=3
+	
+	SLEEP_TIME_RESOLUTION=1
+	
 	def __init__(self):
 		
 		self.actions_url="http://svnlliurexnet.gva.es/leia/public/lliurex_actions.json"
@@ -39,29 +45,49 @@ class LliurexAutoUpgrade:
 		self.org_id="VATES-S4611001A"
 		self.tags_dir="/etc/lliurex-auto-upgrade/tags/"
 		self.disable_file="/etc/lliurex-auto-upgrade/disabled"
-		self.pid_file="/run/lliurex-auto-upgrade.pid"
+		self.run_dir="/run/lliurex-auto-upgrade"
+		self.pid_file=self.run_dir+"/lliurex-auto-upgrade.pid"
+		
+		self.source_list="/usr/share/lliurex-auto-upgrade/sources/lliurex.list"
+		
 		self.packages_to_update=False
 		self.packages_to_enforce=False
-		self.random_sleep_seed=int(random.random()*LliurexAutoUpgrade.RANDOM_SLEEP_WINDOW)
+		
 		self.last_update=None
 		self.new_tag_signal=False
+		self.error_counter=0
+
+		apt_pkg.init_config()
+		apt_pkg.config.set("Dir::Etc::SourceList",self.source_list)
+		
+		
+	#def init
+	
+	def serve_forever(self):
+		
+		self.random_sleep_seed=int(random.random()*LliurexAutoUpgrade.RANDOM_SLEEP_WINDOW)
+		self.updating_loop=False
 		
 		bus=dbus.SystemBus()
 		obj=bus.get_object("org.freedesktop.login1","/org/freedesktop/login1")
 		manager = dbus.Interface(obj, "org.freedesktop.login1.Manager")
-		
-		self.write_pid()
-		
+
+		if not os.path.exists(self.run_dir):
+			os.makedirs(self.run_dir)
+		self.write_pid()		
+
 		if LliurexAutoUpgrade.ENABLE_TAG_NOTIFY:
 			self.start_inotify()
-		
+			
+		signal.signal(signal.SIGUSR1,self.force_loop_signal)
+			
 		if self.is_auto_update_configured():
 		
 			self.flavor=self.get_lliurex_flavor()
 			self.tags=self.get_tags()
 		
 			first_round_success=False
-			error_count=0
+			first_try_error_count=0
 		
 			self.pprint("Starting...")
 			self.print_system_info()
@@ -79,10 +105,12 @@ class LliurexAutoUpgrade:
 					
 				current_sleep_counter+=1
 				
+				# Every SLEEP_TIME_RESOLUTION this IF is checked. We have either slept the current sleep_counter amount
+				# or a new tag has been written or else we sleep another SLEEP_TIME_RESOLUTION until sleept_counter is reached
 				if current_sleep_counter >= sleep_counter or self.new_tag_signal:
 						
-					self.new_tag_signal=False
 					current_sleep_counter=0
+					self.updating_loop=True
 					
 					try:
 						
@@ -95,7 +123,9 @@ class LliurexAutoUpgrade:
 						self.remote_actions=self.get_actions_file()
 						if self.remote_actions!=None:
 							
-							if self.last_update!=self.remote_actions["last_update"]:
+							# its either a new file or we previously failed to complete the loop 
+							if self.last_update!=self.remote_actions["last_update"] or self.error_counter > 0 or self.new_tag_signal:
+								
 								self.pprint("Updating phase...")
 								self.pprint("")
 								self.last_update=self.remote_actions["last_update"]
@@ -110,7 +140,10 @@ class LliurexAutoUpgrade:
 										pass
 									else:
 										raise update_exc
-										
+								
+								# This should be a safe place to reset new_tag_signal
+								self.new_tag_signal=False
+
 								# this should not be necessary
 								#self.pprint("\tValidating %h certificate..."%self.hostname)
 								#self.check_certificate(self.hostname,self.org_id)
@@ -135,39 +168,79 @@ class LliurexAutoUpgrade:
 								self.pprint("")
 								systemd.daemon.notify("STATUS=Nothing to execute. Waiting for new updates.")
 						
+						# everything went wright. Lets clean status variables
+						self.error_counter=0
+						self.updating_loop=False
+						
 						if self.remote_actions != None:
 							first_round_success=True
 							
 					except Exception as e:
 						self.pprint("Exception: %s"%str(e))
-							
+						systemd.daemon.notify("STATUS=Failed to execute: %s"%str(e))
+						self.error_counter+=1
+						self.updating_loop=False
+
 					
 					if first_round_success:
-						self.pprint("Sleeping...")
-						#time.sleep(LliurexAutoUpgrade.SLEEP_TIME)
+						# either everything is ok
 						sleep_counter=LliurexAutoUpgrade.SLEEP_TIME
+						# if we fail for some unknown reason. Lets try a faster loop MAX_ERROR_COUNTER times
+						if self.error_counter > 0 and self.error_counter < LliurexAutoUpgrade.MAX_ERROR_COUNTER:
+							sleep_counter=LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME
+							
+						self.pprint("Sleeping %s minutes until next loop..."%(sleep_counter/60))
+						
 					else:
-						error_count+=1
-						if error_count == LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE:
+						first_try_error_count+=1
+						if first_try_error_count == LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE:
 							# next loop will wake in LliurexAutoUpgrade.SLEEP_TIME hour
 							first_round_success=True
 						else:
 							# we have to reset last_update value to force new try after sleeping
 							self.last_update=None
-						self.pprint("Sleeping a reduced time since we failed to complete first run on try %s/%s ..."%(error_count,LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE))
+						self.pprint("Sleeping a reduced time since we failed to complete first run on try %s/%s ..."%(first_try_error_count,LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE))
 						sleep_counter=LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME
-						#time.sleep(LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME)
+						sleep_counter=LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME
 				else:
+					# current_sleep_counter is still bellow sleep_counter. We do nothing
 					pass
 					#self.pprint("Sleeping... %s/%s"%(current_sleep_counter,sleep_counter))
-					
-				time.sleep(1)
+				
+				time.sleep(LliurexAutoUpgrade.SLEEP_TIME_RESOLUTION)
 				
 		else:
 			self.pprint("'%s' exists, service is disabled. Exiting..."%self.disable_file)
-			
 		
-	#def __init__
+	#def server_loop
+	
+	def force_loop_signal(self,signum,frame):
+		
+		self.pprint("Force loop signal received.")
+		
+		while self.updating_loop:
+			time.sleep(1)
+		
+		self.tags=self.get_tags()
+		self.print_system_info()
+		self.new_tag_signal=True
+		self.last_update=None		
+		
+	#def force_loop_signal
+	
+	def send_force_signal(self):
+		
+		bus=dbus.SystemBus()
+		sdobj=bus.get_object("org.freedesktop.systemd1","/org/freedesktop/systemd1")
+		systemd_manager=dbus.Interface(sdobj,"org.freedesktop.systemd1.Manager")
+		
+		unit_path=systemd_manager.GetUnit("lliurex-auto-upgrade.service")
+		unit_obj=bus.get_object("org.freedesktop.systemd1",unit_path)
+		unit_iface=dbus.Interface(unit_obj,"org.freedesktop.systemd1.Unit")
+		
+		unit_iface.Kill("main",signal.SIGUSR1.value)
+		
+	#def send_force_signal
 	
 	def pprint(self,data):
 		
@@ -231,16 +304,15 @@ class LliurexAutoUpgrade:
 				
 			def process_IN_CLOSE_WRITE(self,event):
 
-				self.main.pprint(event.pathname)
-				self.main.pprint(event.name)
-				systemd.daemon.notify("STATUS=New tag %s detected. Forcing new loop"%event.name)
+				self.main.pprint("New tag %s detected. Queuing new loop"%event.name)
+				systemd.daemon.notify("STATUS=New tag %s detected. Queuing new loop"%event.name)
 				self.main.tags=self.main.get_tags()
 				self.main.print_system_info()
 				self.main.new_tag_signal=True
 				self.main.last_update=None
 	
 		notifier=Notifier(wm,Process_handler(self))
-		wdd=wm.add_watch(self.tags_dir,mask,rec=True)
+		wm.add_watch(self.tags_dir,mask,rec=True)
 			
 		while True:
 			try:
@@ -350,7 +422,6 @@ class LliurexAutoUpgrade:
 		return data
 		
 	#def get_actions_file
-	
 	
 	def get_lliurex_flavor(self):
 		
@@ -499,6 +570,93 @@ class LliurexAutoUpgrade:
 		
 	#def print_system_info
 	
+	def print_remote_actions(self,data):
+		
+		'''
+		self.pprint("")
+		self.pprint("Last Update: %s"%data["last_update"])
+		self.pprint("Flavors:")
+		for flavor in data["flavors"]:
+			self.pprint("\t%s"%flavor)
+			self.pprint("\t\tUpdate:")
+			for update in data["flavors"][flavor]["update"]:
+				self.pprint("\t\t\t%s"%update)
+			self.pprint("\t\tEnforce:")
+			for enforce in data["flavors"][flavor]["enforce"]:
+				self.pprint("\t\t\t%s"%enforce)	
+		'''
+		print(json.dumps(data,indent=4))
+		
+	#def print_remote_actions
+		
+	def dry_run(self,print_actions=False):
+		
+		try:
+
+			self.flavor=self.get_lliurex_flavor()
+			self.tags=self.get_tags()
+
+			self.remote_actions=self.get_actions_file()
+			
+			self.apt_cache=apt.Cache()
+			self.apt_cache.update()
+			self.apt_cache.open()
+			
+			self.my_actions=self.gather_actions()
+			if print_actions:
+				self.print_my_actions()
+				self.pprint("")
+				
+			self.mark_update()
+			self.mark_enforce()
+
+			# Forcing package to see something when testing
+			# This line should be commented 
+			self.apt_cache["systemd"].mark_upgrade()
+			
+			changes=self.apt_cache.get_changes()
+			
+			for package in changes:
+				
+				self.pprint("%s=%s needs to be installed."%(package.name,package.candidate.version))
+				
+			if len(changes)==0:
+				
+				self.pprint("Up to date. Nothing to install")
+				
+		except Exception as e:
+			self.pprint("[!] Failed to dry-run: %s"%str(e))
+			
+	#def dry_run
+	
+	def _remote_tags(self):
+		
+		data=lau.get_actions_file()
+		lau.print_remote_actions(data)
+		
+	#def remote_tags
+	
+	def _system_tags(self):
+		
+		self.flavor=lau.get_lliurex_flavor()
+		self.tags=lau.get_tags()
+		self.print_system_info()
+		
+	#def system_tags
+	
+	def usage(self):
+		
+		print("USAGE: lliurex-auto-upgrade [ serve | reload | remote-tags | system-tags | dry-run ]")
+		print("")
+		print("\tserve: server used by systemd to manage updates automatically.")
+		print("\treload: forces server to reload local and remote tags as soon as possible.")
+		print("\tremote-tags: print remote rules.")
+		print("\tsystem-tags: print system tags.")
+		print("\tdry-run: Checks local and remote tags and lists pending updates.")
+		print()
+		
+		
+	#def usage
 	
 #class LliurexAutoUpdater
 
@@ -506,3 +664,21 @@ class LliurexAutoUpgrade:
 if __name__=="__main__":
 	
 	lau=LliurexAutoUpgrade()
+	if len(sys.argv)>1:
+		
+		option=sys.argv[1]
+		if option=="serve":
+			lau.serve_forever()
+		if option=="reload":
+			lau.send_force_signal()
+		if option=="remote-tags":
+			lau._remote_tags()
+		if option=="system-tags":
+			lau._system_tags()
+		if option=="dry-run":
+			lau.dry_run(print_actions=True)
+			
+	else:
+		lau.usage()
+
+			
