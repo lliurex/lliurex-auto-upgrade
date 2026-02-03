@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.30.1) jammy; urgency=medium
+
+  * Fixed first random sleep (it was 1, back to 30 seconds) 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Tue, 03 Feb 2026 13:53:57 +0100
+
 lliurex-auto-upgrade (0.29) jammy; urgency=medium
 
   * lliurex-auto-upgrade now supports arguments: serve, reload, system-tags,
