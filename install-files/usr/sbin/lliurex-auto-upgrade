@@ -126,6 +126,8 @@ class LliurexAutoUpgrade:
 							# its either a new file or we previously failed to complete the loop 
 							if self.last_update!=self.remote_actions["last_update"] or self.error_counter > 0 or self.new_tag_signal:
 								
+								systemd.daemon.notify("STATUS=Updating apt..")
+								
 								self.pprint("Updating phase...")
 								self.pprint("")
 								self.last_update=self.remote_actions["last_update"]
@@ -492,7 +494,6 @@ class LliurexAutoUpgrade:
 			if self.is_package_upgradable(package):
 				self.pprint("Marking %s update..."%package)
 				self.apt_cache[package].mark_upgrade()
-				print(dir(self.apt_cache[package]))
 				self.packages_to_update=True
 				
 	#def mark_update
