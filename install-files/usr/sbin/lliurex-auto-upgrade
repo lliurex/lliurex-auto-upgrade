@@ -47,7 +47,7 @@ class LliurexAutoUpgrade:
 		self.disable_file="/etc/lliurex-auto-upgrade/disabled"
 		self.run_dir="/run/lliurex-auto-upgrade"
 		self.pid_file=self.run_dir+"/lliurex-auto-upgrade.pid"
-		self.run_log=self.run_dir+"installed_packages"
+		self.run_log=self.run_dir+"/installed_packages.log"
 		
 		self.source_list="/usr/share/lliurex-auto-upgrade/sources/lliurex.list"
 		
