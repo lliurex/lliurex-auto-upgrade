@@ -47,6 +47,7 @@ class LliurexAutoUpgrade:
 		self.disable_file="/etc/lliurex-auto-upgrade/disabled"
 		self.run_dir="/run/lliurex-auto-upgrade"
 		self.pid_file=self.run_dir+"/lliurex-auto-upgrade.pid"
+		self.run_log=self.run_dir+"installed_packages"
 		
 		self.source_list="/usr/share/lliurex-auto-upgrade/sources/lliurex.list"
 		
@@ -125,6 +126,8 @@ class LliurexAutoUpgrade:
 							
 							# its either a new file or we previously failed to complete the loop 
 							if self.last_update!=self.remote_actions["last_update"] or self.error_counter > 0 or self.new_tag_signal:
+								
+								systemd.daemon.notify("STATUS=Updating apt..")
 								
 								self.pprint("Updating phase...")
 								self.pprint("")
@@ -492,7 +495,6 @@ class LliurexAutoUpgrade:
 			if self.is_package_upgradable(package):
 				self.pprint("Marking %s update..."%package)
 				self.apt_cache[package].mark_upgrade()
-				print(dir(self.apt_cache[package]))
 				self.packages_to_update=True
 				
 	#def mark_update
@@ -539,6 +541,8 @@ class LliurexAutoUpgrade:
 				if self.apt_cache[package].marked_install or self.apt_cache[package].marked_upgrade:
 					package_list+="%s "%package
 			
+			self.write_run_log(package_list)
+			
 			systemd.daemon.notify("STATUS=Installing packages: %s"%package_list)
 			self.pprint("\t\tInstalling packages: %s"%package_list)
 			self.apt_cache.commit()
@@ -550,6 +554,18 @@ class LliurexAutoUpgrade:
 			self.pprint("")
 		
 	#def execute
+	
+	def write_run_log(self,package_list_str):
+		
+		try:
+			
+			with open(self.run_log,"w") as f:
+				f.write(package_list_str)
+			
+		except:
+			pass
+		
+	#def write_run_log
 	
 	def print_my_actions(self):
 		
