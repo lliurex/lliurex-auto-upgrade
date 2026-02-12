@@ -1,3 +1,10 @@
+lliurex-auto-upgrade (0.31) jammy; urgency=medium
+
+  * Writting installed packages to
+    /run/lliurex-auto-upgrade/installed_packages 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Thu, 12 Feb 2026 08:55:17 +0100
+
 lliurex-auto-upgrade (0.30.2) jammy; urgency=medium
 
   * Removed testing code in dry-run
