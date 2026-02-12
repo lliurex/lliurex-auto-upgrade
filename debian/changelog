@@ -1,7 +1,7 @@
-lliurex-auto-upgrade (0.31) jammy; urgency=medium
+lliurex-auto-upgrade (0.31.1) jammy; urgency=medium
 
   * Writting installed packages to
-    /run/lliurex-auto-upgrade/installed_packages 
+    /run/lliurex-auto-upgrade/installed_packages.log 
 
  -- Hector Garcia Huerta <hectorgh@gmail.com>  Thu, 12 Feb 2026 08:55:17 +0100
 
