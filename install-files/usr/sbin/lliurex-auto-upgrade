@@ -48,7 +48,7 @@ class LliurexAutoUpgrade:
 		self.run_dir="/run/lliurex-auto-upgrade"
 		self.pid_file=self.run_dir+"/lliurex-auto-upgrade.pid"
 		self.run_log=self.run_dir+"/installed_packages.log"
-		
+		self.run_token=self.run_dir+"/.token"
 		self.source_list="/usr/share/lliurex-auto-upgrade/sources/lliurex.list"
 		
 		self.packages_to_update=False
@@ -202,6 +202,8 @@ class LliurexAutoUpgrade:
 						else:
 							# we have to reset last_update value to force new try after sleeping
 							self.last_update=None
+							
+						systemd.daemon.notify("STATUS=Failed to complete first run on try %s/%s . Retrying... "%(first_try_error_count,LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE))	
 						self.pprint("Sleeping a reduced time since we failed to complete first run on try %s/%s ..."%(first_try_error_count,LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE))
 						sleep_counter=LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME
 						sleep_counter=LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME
@@ -674,6 +676,16 @@ class LliurexAutoUpgrade:
 		
 	#def usage
 	
+	def check_root(self):
+		
+		if os.getuid()==0:
+			return True
+		
+		print("[!] You need administrator privileges to run this option.")
+		sys.exit(0)
+		
+	#def check_root
+	
 #class LliurexAutoUpdater
 
 
@@ -684,14 +696,17 @@ if __name__=="__main__":
 		
 		option=sys.argv[1]
 		if option=="serve":
+			lau.check_root()
 			lau.serve_forever()
 		if option=="reload":
+			lau.check_root()
 			lau.send_force_signal()
 		if option=="remote-tags":
 			lau._remote_tags()
 		if option=="system-tags":
 			lau._system_tags()
 		if option=="dry-run":
+			lau.check_root()
 			lau.dry_run(print_actions=True)
 			
 	else:
