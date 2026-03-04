@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.31.2) jammy; urgency=medium
+
+  * Added systemd notification when a fist run try fails  
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 04 Mar 2026 08:45:19 +0100
+
 lliurex-auto-upgrade (0.31.1) jammy; urgency=medium
 
   * Writting installed packages to
