@@ -29,7 +29,8 @@ class LliurexAutoUpgrade:
 	ENFORCE_LLIUREX_NET=True
 	IGNORE_UPDATE_ERROR=True
 	ENABLE_TAG_NOTIFY=False
-	RANDOM_SLEEP_WINDOW=30
+	FIRST_FIXED_SLEEP=60
+	RANDOM_SLEEP_WINDOW=60
 	SLEEP_TIME=60*40
 	DPKG_SLEEP=1
 	ALTERNATE_SLEEP_TIME=60
@@ -43,19 +44,26 @@ class LliurexAutoUpgrade:
 		self.actions_url="http://svnlliurexnet.gva.es/leia/public/lliurex_actions.json"
 		self.hostname="svnlliurexnet.gva.es"
 		self.org_id="VATES-S4611001A"
-		self.tags_dir="/etc/lliurex-auto-upgrade/tags/"
+
+		self.etc_tags_dir="/etc/lliurex-auto-upgrade/tags/"
 		self.disable_file="/etc/lliurex-auto-upgrade/disabled"
+
 		self.run_dir="/run/lliurex-auto-upgrade"
+		self.run_tags_dir=self.run_dir+"/tags/"
 		self.pid_file=self.run_dir+"/lliurex-auto-upgrade.pid"
 		self.run_log=self.run_dir+"/installed_packages.log"
 		self.run_token=self.run_dir+"/.token"
-		self.source_list="/usr/share/lliurex-auto-upgrade/sources/lliurex.list"
+		
+		self.usr_dir="/usr/share/lliurex-auto-upgrade"
+		self.usr_tags_dir=self.usr_dir+"/tags"
+		self.source_list=self.usr_dir+"/sources/lliurex.list"
 		
 		self.packages_to_update=False
 		self.packages_to_enforce=False
 		
 		self.last_update=None
 		self.new_tag_signal=False
+		self.tags_dic={}
 		self.error_counter=0
 
 		apt_pkg.init_config()
@@ -75,6 +83,10 @@ class LliurexAutoUpgrade:
 
 		if not os.path.exists(self.run_dir):
 			os.makedirs(self.run_dir)
+		
+		if not os.path.exists(self.run_tags_dir):
+			os.makedirs(self.run_tags_dir)
+			
 		self.write_pid()		
 
 		if LliurexAutoUpgrade.ENABLE_TAG_NOTIFY:
@@ -102,7 +114,7 @@ class LliurexAutoUpgrade:
 				if self.last_update==None and not self.new_tag_signal:
 					systemd.daemon.notify("STATUS=First run sleep")
 					# we only sleep a random amount the first time
-					time.sleep(self.random_sleep_seed)
+					time.sleep(self.random_sleep_seed + LliurexAutoUpgrade.FIRST_FIXED_SLEEP)
 					
 				current_sleep_counter+=1
 				
@@ -317,7 +329,7 @@ class LliurexAutoUpgrade:
 				self.main.last_update=None
 	
 		notifier=Notifier(wm,Process_handler(self))
-		wm.add_watch(self.tags_dir,mask,rec=True)
+		wm.add_watch(self.etc_tags_dir,mask,rec=True)
 			
 		while True:
 			try:
@@ -437,15 +449,34 @@ class LliurexAutoUpgrade:
 	def get_tags(self):
 		
 		tags=[]
-		if os.path.exists(self.tags_dir):
-			dir_list=os.listdir(self.tags_dir)
-			for item in dir_list:
-				if os.path.isfile(self.tags_dir+item):
-					tags.append(item)
 		
+		self.tags_dic={}
+		
+		self.tags_dic["run"]=self.get_tags_from_dir(self.run_tags_dir)
+		self.tags_dic["usr"]=self.get_tags_from_dir(self.usr_tags_dir)
+		self.tags_dic["etc"]=self.get_tags_from_dir(self.etc_tags_dir)
+		
+		for key in self.tags_dic.keys():
+			for tag in self.tags_dic[key]:
+				if tag not in tags:
+					tags.append(tag)
+	
 		return tags
 		
 	#def get_tags
+	
+	def get_tags_from_dir(self,dir):
+		
+		tags=[]
+		if os.path.exists(dir):
+			dir_list=os.listdir(dir)
+			for item in dir_list:
+				if os.path.isfile(os.path.join(dir,item)):
+					tags.append(item)
+					
+		return tags		
+		
+	#def get_tags_from_dir
 	
 	def gather_actions(self):
 		
@@ -583,7 +614,22 @@ class LliurexAutoUpgrade:
 		self.pprint("")
 		self.pprint("System info:")
 		self.pprint("\tFlavor: %s"%str(self.flavor))
-		self.pprint("\tTags: %s"%str(self.tags))
+		self.pprint("\tTags:")
+		if "run" in self.tags_dic and len(self.tags_dic["run"]) > 0:
+			self.pprint("\t * Auto generated tags in %s :"%self.run_tags_dir)
+			for tag in self.tags_dic["run"]:
+				self.pprint("\t\t%s"%tag)
+			
+		if "usr" in self.tags_dic and len(self.tags_dic["usr"]) > 0:
+			self.pprint("\t * Auto generated tags in %s :"%self.run_tags_dir)
+			for tag in self.tags_dic["usr"]:
+				self.pprint("\t\t%s"%tag)
+				
+		if "etc" in self.tags_dic and len(self.tags_dic["etc"]) > 0:
+			self.pprint("\t * Auto generated tags in %s :"%self.run_tags_dir)
+			for tag in self.tags_dic["etc"]:
+				self.pprint("\t\t%s"%tag)
+		
 		self.pprint("")
 		
 	#def print_system_info
