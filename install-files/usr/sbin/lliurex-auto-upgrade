@@ -29,8 +29,7 @@ class LliurexAutoUpgrade:
 	ENFORCE_LLIUREX_NET=True
 	IGNORE_UPDATE_ERROR=True
 	ENABLE_TAG_NOTIFY=False
-	FIRST_FIXED_SLEEP=60
-	RANDOM_SLEEP_WINDOW=60
+	RANDOM_SLEEP_WINDOW=120
 	SLEEP_TIME=60*40
 	DPKG_SLEEP=1
 	ALTERNATE_SLEEP_TIME=60
@@ -114,7 +113,7 @@ class LliurexAutoUpgrade:
 				if self.last_update==None and not self.new_tag_signal:
 					systemd.daemon.notify("STATUS=First run sleep")
 					# we only sleep a random amount the first time
-					time.sleep(self.random_sleep_seed + LliurexAutoUpgrade.FIRST_FIXED_SLEEP)
+					time.sleep(self.random_sleep_seed)
 					
 				current_sleep_counter+=1
 				
