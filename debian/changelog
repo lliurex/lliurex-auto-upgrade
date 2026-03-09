@@ -1,3 +1,14 @@
+lliurex-auto-upgrade (0.31.3) jammy; urgency=medium
+
+  * Service now supports 3 tag paths:
+     - /etc/lliurex-auto-upgrade/tags
+     - /usr/share/lliurex-auto-upgrade/tags
+     - /run/lliurex-auto-upgrade/tags
+
+  * Improved print_system_info function 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Mon, 09 Mar 2026 11:42:57 +0100
+
 lliurex-auto-upgrade (0.31.2) jammy; urgency=medium
 
   * Added systemd notification when a fist run try fails  
