@@ -1,0 +1,16 @@
+_lliurex-auto-upgrade() 
+{
+    local cur prev opts base
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    #
+    #  The basic options we'll complete.
+    #
+    opts="serve reload remote-tags system-tags dry-run"
+
+   COMPREPLY=($(compgen -W "${opts}" -- ${cur}))  
+   return 0
+}
+[ "$have" ] && complete -F _lliurex-auto-upgrade lliurex-auto-upgrade
