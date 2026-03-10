@@ -707,16 +707,46 @@ class LliurexAutoUpgrade:
 		
 	#def system_tags
 	
+	def add_tag(self,tag):
+		
+		tag_path=os.path.join(self.etc_tags_dir,tag)
+		
+		if os.path.exists(tag_path):
+			self.pprint("[!] Tag %s already exists. [!]"%tag)
+			return False
+		
+		open(tag_path,"w").close()
+		return True
+		
+	#def add_tag
+	
+	def delete_tag(self,tag):
+
+		tag_path=os.path.join(self.etc_tags_dir,tag)
+		
+		if not os.path.exists(tag_path):
+			self.pprint("[!] Tag %s does not exist. [!]"%tag)
+			return False
+		
+		os.remove(tag_path)
+		return True
+		
+	#def delete_tag
+	
 	def usage(self):
 		
-		print("USAGE: lliurex-auto-upgrade [ serve | reload | remote-tags | system-tags | dry-run ]")
+		print("USAGE: lliurex-auto-upgrade [ serve | reload | remote-tags | system-tags | dry-run | add-tag TAG_NAME | delete-tag TAG_NAME ]")
 		print("")
 		print("\tserve: server used by systemd to manage updates automatically.")
 		print("\treload: forces server to reload local and remote tags as soon as possible.")
 		print("\tremote-tags: print remote rules.")
 		print("\tsystem-tags: print system tags.")
 		print("\tdry-run: Checks local and remote tags and lists pending updates.")
+		print("\tadd-tag: Creates a new tag in %s ."%self.etc_tags_dir )
+		print("\tadd-tag: Deletes a tag in %s ."%self.etc_tags_dir )
 		print()
+		
+		sys.exit(0)
 		
 		
 	#def usage
@@ -753,6 +783,22 @@ if __name__=="__main__":
 		if option=="dry-run":
 			lau.check_root()
 			lau.dry_run(print_actions=True)
+		if option=="add-tag":
+			lau.check_root()
+			try:
+				tag=sys.argv[2]
+			except Exception as e:
+				print("[!] Missing tag name [!]\n")
+				lau.usage()
+			lau.add_tag(tag)
+		if option=="delete-tag":
+			lau.check_root()
+			try:
+				tag=sys.argv[2]
+			except Exception as e:
+				print("[!] Missing tag name [!]\n")
+				lau.usage()
+			lau.delete_tag(tag)	
 			
 	else:
 		lau.usage()
