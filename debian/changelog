@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.31.5) jammy; urgency=medium
+
+  * Added add-tag and delete-tag options  
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Tue, 10 Mar 2026 11:41:13 +0100
+
 lliurex-auto-upgrade (0.31.4) jammy; urgency=medium
 
   * Fixed print_system_info paths
