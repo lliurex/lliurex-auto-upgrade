@@ -620,12 +620,12 @@ class LliurexAutoUpgrade:
 				self.pprint("\t\t%s"%tag)
 			
 		if "usr" in self.tags_dic and len(self.tags_dic["usr"]) > 0:
-			self.pprint("\t * Auto generated tags in %s :"%self.run_tags_dir)
+			self.pprint("\t * Installed tags in %s :"%self.usr_tags_dir)
 			for tag in self.tags_dic["usr"]:
 				self.pprint("\t\t%s"%tag)
 				
 		if "etc" in self.tags_dic and len(self.tags_dic["etc"]) > 0:
-			self.pprint("\t * Auto generated tags in %s :"%self.run_tags_dir)
+			self.pprint("\t * Configured tags in %s :"%self.etc_tags_dir)
 			for tag in self.tags_dic["etc"]:
 				self.pprint("\t\t%s"%tag)
 		
