@@ -1,3 +1,10 @@
+lliurex-auto-upgrade (0.31.4) jammy; urgency=medium
+
+  * Fixed print_system_info paths
+  * Added bash completion file 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Tue, 10 Mar 2026 10:53:30 +0100
+
 lliurex-auto-upgrade (0.31.3) jammy; urgency=medium
 
   * Service now supports 3 tag paths:
