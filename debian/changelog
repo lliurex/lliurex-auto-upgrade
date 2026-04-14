@@ -1,3 +1,23 @@
+lliurex-auto-upgrade (0.31.5) noble; urgency=medium
+
+  * Merge with upstream:
+    * lliurex-auto-upgrade now supports arguments: serve, reload, system-tags,
+    remote-tags, dry-run
+    * Fixed first random sleep (it was 1, back to 30 seconds) 
+    * Removed testing code in dry-run
+    * Writting installed packages to
+    /run/lliurex-auto-upgrade/installed_packages.log 
+    * Added systemd notification when a fist run try fails
+    * Service now supports 3 tag paths:
+     - /etc/lliurex-auto-upgrade/tags
+     - /usr/share/lliurex-auto-upgrade/tags
+     - /run/lliurex-auto-upgrade/tags 
+    * fixed print_system_info paths
+    * Added bash completion file 
+    * Added add-tag and delete-tag options  
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Tue, 14 Apr 2026 13:26:44 +0200
+
 lliurex-auto-upgrade (0.28.2) noble; urgency=medium
 
   * Fixed missing depends 
