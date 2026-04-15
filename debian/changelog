@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.31.6) noble; urgency=medium
+
+  * Fixed service unit with new lliurex-auto-upgrade serve call 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 15 Apr 2026 10:22:51 +0200
+
 lliurex-auto-upgrade (0.31.5) noble; urgency=medium
 
   * Merge with upstream:
