@@ -1,6 +1,17 @@
+lliurex-auto-upgrade (0.31.8) noble; urgency=medium
+
+  * Fixed missing usage options
+  * Updated bash_completion.d file 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 08 Jul 2026 18:30:22 +0200
+
 lliurex-auto-upgrade (0.31.7) noble; urgency=medium
 
-  * Adding unattended upgrade support 
+  * Adding unattended upgrades support
+  * Migrated from while True to threading.Events
+  * Migrated to f-string prints
+  * Deleting unused code
+  * Fixed small bugs
 
  -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 08 Jul 2026 17:56:18 +0200
 
