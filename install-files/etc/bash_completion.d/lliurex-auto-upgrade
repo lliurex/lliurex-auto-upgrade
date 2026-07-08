@@ -9,7 +9,7 @@ _lliurex-auto-upgrade()
     #
     #  The basic options we'll complete.
     #
-    opts="add-tag delete-tag serve dry-run remote-tags system-tags reload"
+    opts="add-tag delete-tag disable-unattended-upgrades enable-unattended-upgrades serve dry-run remote-tags system-tags reload"
 
 
     #
