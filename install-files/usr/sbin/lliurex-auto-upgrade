@@ -144,7 +144,6 @@ class LliurexAutoUpgrade:
 		self.usr_tags_dir=self.usr_dir+"/tags"
 		self.source_list=self.usr_dir+"/sources/lliurex.list"
 		self.lliurex_packages=self.usr_dir+"/packages/lliurex.pkgs"
-		self.lliurex_packages="/home/lliurex/kk"
 		
 		self.update_priority=["lliurex","security","linux","ubuntu"]
 		
