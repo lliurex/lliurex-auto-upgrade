@@ -1,6 +1,17 @@
+lliurex-auto-upgrade (0.31.8) jammy; urgency=medium
+
+  * Missing usage options
+  * Updated bash_completion.d
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 08 Jul 2026 18:27:49 +0200
+
 lliurex-auto-upgrade (0.31.7) jammy; urgency=medium
 
-  * Adding unattended upgrades support 
+  * Adding unattended upgrades support
+  * Migrated from while True to threading.Events
+  * Migrated to f-string prints 
+  * Deleting unused code
+  * Fixed small bugs
 
  -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 08 Jul 2026 17:55:25 +0200
 
