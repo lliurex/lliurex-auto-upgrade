@@ -16,9 +16,11 @@ import fcntl
 import dns.resolver
 from ipaddress import IPv4Address, IPv4Network
 
-LOCK_FILE = "/var/run/lliurex-autotags-network.lock"
+LOCK_FILE = "/run/lliurex-autotags-network.lock"
 
 TAGS_DIR = "/etc/lliurex-auto-upgrade/tags/"
+RUN_TAGS_DIR = "/run/lliurex-auto-upgrade/tags/"
+
 tags = []
 
 SYS_IFACE_TYPE_LOOPBACK = 772
@@ -113,6 +115,9 @@ def clear_tags():
 	for path in (glob.glob(TAGS_DIR+"network.*")):
 		os.remove(path)
 
+	for path in (glob.glob(RUN_TAGS_DIR+"network.*")):
+		os.remove(path)
+
 def lock():
 	fd = os.open(LOCK_FILE, os.O_RDWR | os.O_CREAT)
 	fcntl.flock(fd, fcntl.LOCK_EX)
@@ -125,8 +130,9 @@ def release(fd):
 
 if __name__=="__main__":
 
-	if (not os.path.exists(TAGS_DIR)):
-		sys.exit(0)
+	if (not os.path.exists(RUN_TAGS_DIR)):
+		p = pathlib.Path(RUN_TAGS_DIR)
+		p.mkdir(parents = True)
 
 	try:
 		lock_fd = lock()
@@ -163,6 +169,6 @@ if __name__=="__main__":
 		pass
 
 	for tag in tags:
-		p = pathlib.Path(TAGS_DIR + tag)
+		p = pathlib.Path(RUN_TAGS_DIR + tag)
 		p.touch()
 

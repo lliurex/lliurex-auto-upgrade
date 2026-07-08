@@ -11,16 +11,23 @@ import subprocess
 import pathlib
 
 TAGS_DIR = "/etc/lliurex-auto-upgrade/tags/"
+RUN_TAGS_DIR = "/run/lliurex-auto-upgrade/tags/"
+
 tags = []
 
 def clear_tags():
 	for path in (glob.glob(TAGS_DIR+"lliurex.version.*")):
 		os.remove(path)
 
+	for path in (glob.glob(RUN_TAGS_DIR+"lliurex.version.*")):
+		os.remove(path)
+
+
 if __name__=="__main__":
 
-	if (not os.path.exists(TAGS_DIR)):
-		sys.exit(0)
+	if (not os.path.exists(RUN_TAGS_DIR)):
+		p = pathlib.Path(RUN_TAGS_DIR)
+		p.mkdir(parents = True)
 
 	try:
 		clear_tags()
@@ -34,6 +41,6 @@ if __name__=="__main__":
 
 
 	for tag in tags:
-		p = pathlib.Path(TAGS_DIR + tag)
+		p = pathlib.Path(RUN_TAGS_DIR + tag)
 		p.touch()
 
