@@ -12,40 +12,127 @@ import psutil
 import subprocess
 import syslog
 import dbus
+import ssl
+import socket
+import setproctitle
 
 import threading
-import psutil
 import signal 
 import systemd.daemon 
 
 import pyinotify
 from pyinotify import WatchManager, Notifier, ThreadedNotifier, EventsCodes, ProcessEvent
 
+from debian.debian_support import Version
+
+
+class UpdateDB:
+	
+	def __init__(self,db_name):
+		
+		self.db_name=db_name
+		self.size_by_letter={}
+		self.install=[]
+		self.upgrade=[]
+		self.install_size=0
+		self.upgrade_size=0
+		self.size=0				
+		
+	def add_upgrade(self,pkg,size):
+		
+		if len(pkg)==0:
+			return False
+			
+		letter=pkg[0]
+		
+		if letter not in self.size_by_letter:
+			self.size_by_letter[letter]=0
+		
+		if pkg not in self.upgrade:
+			self.upgrade.append(pkg)
+			self.upgrade_size+=size
+			self.size+=size
+			self.size_by_letter[letter]+=size
+			
+			return True
+			
+		return False
+		
+	def add_install(self,pkg,size):
+		
+		if len(pkg)==0:
+			return False
+			
+		letter=pkg[0]
+		
+		if letter not in self.size_by_letter:
+			self.size_by_letter[letter]=0
+		
+		if pkg not in self.install:
+			self.install.append(pkg)
+			self.install_size+=size
+			self.size+=size
+			self.size_by_letter[letter]+=size
+			return True
+			
+		return False
+		
+	def pprint(self,by_letter=False):
+		
+		print(f"DB: {self.db_name}")
+		size=self.install_size/1024/1024
+		print(f"\tNew packages size: {size:.2f} MB")
+		size=self.upgrade_size/1024/1024
+		print(f"\tUpgrade packages size: {size:.2f} MB")
+		size=self.size/1024/1024
+		print(f"\tTotal size: {size:.2f} MB")
+		
+		if not by_letter:
+			return 
+		tmp=sorted(self.size_by_letter.items(), key=lambda x: x[1],reverse=True)
+		print("\tSorted size by letter:")
+		for item in tmp:
+			letter,value=item
+			size=value/1024/1024
+			print(f"\t\t{letter}: {size:.2f} MB")
+	
 
 class LliurexAutoUpgrade:
 	
+	TESTING=False
+
 	DEBUG=True
 	SYSLOG=True
+	
 	ENFORCE_LLIUREX_NET=True
 	IGNORE_UPDATE_ERROR=True
 	ENABLE_TAG_NOTIFY=False
+	
 	RANDOM_SLEEP_WINDOW=120
 	SLEEP_TIME=60*40
+	
+	if TESTING:
+		RANDOM_SLEEP_WINDOW=10
+		SLEEP_TIME=60
+	
 	DPKG_SLEEP=1
 	ALTERNATE_SLEEP_TIME=60
+	
 	MAX_RETRIES_FIRST_UPDATE=10
 	MAX_ERROR_COUNTER=3
-	
-	SLEEP_TIME_RESOLUTION=1
+
+	UNATTENDED_LIMIT=1
+	UNATTENDED_DELAY=5
 	
 	def __init__(self):
 		
-		self.actions_url="http://svnlliurexnet.gva.es/leia/public/lliurex_actions.json"
+		self.actions_url="https://svnlliurexnet.gva.es/leia/public/lliurex_actions.json"
 		self.hostname="svnlliurexnet.gva.es"
 		self.org_id="VATES-S4611001A"
 
 		self.etc_tags_dir="/etc/lliurex-auto-upgrade/tags"
 		self.disable_file="/etc/lliurex-auto-upgrade/disabled"
+		self.unattended_conf_file="/etc/lliurex-auto-upgrade/unattended_upgrade.conf"
 
 		self.run_dir="/run/lliurex-auto-upgrade"
 		self.run_tags_dir=self.run_dir+"/tags"
@@ -56,25 +143,38 @@ class LliurexAutoUpgrade:
 		self.usr_dir="/usr/share/lliurex-auto-upgrade"
 		self.usr_tags_dir=self.usr_dir+"/tags"
 		self.source_list=self.usr_dir+"/sources/lliurex.list"
+		self.lliurex_packages=self.usr_dir+"/packages/lliurex.pkgs"
+		self.lliurex_packages="/home/lliurex/kk"
+		
+		self.update_priority=["lliurex","security","linux","ubuntu"]
 		
 		self.packages_to_update=False
 		self.packages_to_enforce=False
 		
+		self.remote_actions=None
+		self.update_db=None
 		self.last_update=None
 		self.new_tag_signal=False
+		self.unattended_conf=None
+		self.apt_cache = None
+		self.download_cache = None
 		self.tags_dic={}
 		self.error_counter=0
+		self.wakeup_event=threading.Event()
+		self.auto_installed=[]
 
 		apt_pkg.init_config()
 		apt_pkg.config.set("Dir::Etc::SourceList",self.source_list)
+		apt_pkg.config.set("Dir::Etc::SourceParts",self.usr_dir+"/sources/")
+		apt_pkg.init_system()
 		
+		setproctitle.setproctitle("lliurex-auto-upgrade")
 		
 	#def init
 	
 	def serve_forever(self):
 		
 		self.random_sleep_seed=int(random.random()*LliurexAutoUpgrade.RANDOM_SLEEP_WINDOW)
-		self.updating_loop=False
 		
 		bus=dbus.SystemBus()
 		obj=bus.get_object("org.freedesktop.login1","/org/freedesktop/login1")
@@ -100,147 +200,187 @@ class LliurexAutoUpgrade:
 		
 			first_round_success=False
 			first_try_error_count=0
+			failed_first_round=False
 		
 			self.pprint("Starting...")
 			self.print_system_info()
-			current_sleep_counter=0
 			sleep_counter=1
+			
+			force_unattended_exit = False
+			unattended_loops = 0 
+			unattended_error_count = 0
 			
 			while True:
 				# Needed for systemd to know service is up and running
 				systemd.daemon.notify("READY=1")
 				
-				if self.last_update==None and not self.new_tag_signal:
+				if self.last_update is None and not self.new_tag_signal:
 					systemd.daemon.notify("STATUS=First run sleep")
 					# we only sleep a random amount the first time
 					time.sleep(self.random_sleep_seed)
 					
-				current_sleep_counter+=1
+				# V2. Lets try threading.Event instead of just sleeping 1 and checking
 				
-				# Every SLEEP_TIME_RESOLUTION this IF is checked. We have either slept the current sleep_counter amount
-				# or a new tag has been written or else we sleep another SLEEP_TIME_RESOLUTION until sleept_counter is reached
-				if current_sleep_counter >= sleep_counter or self.new_tag_signal:
-						
-					current_sleep_counter=0
-					self.updating_loop=True
+				try:
 					
-					try:
-						
-						# wait for dpkgs to end
-						while self.find_process("dpkg"):
-							systemd.daemon.notify("STATUS=Waiting for dpkg to finish.")
-							time.sleep(LliurexAutoUpgrade.DPKG_SLEEP)
-								
-						systemd.daemon.notify("STATUS=Checking remote file")
-						self.remote_actions=self.get_actions_file()
-						if self.remote_actions!=None:
+					# wait for dpkgs to end
+					while self.find_process("dpkg"):
+						systemd.daemon.notify("STATUS=Waiting for dpkg to finish.")
+						time.sleep(LliurexAutoUpgrade.DPKG_SLEEP)
 							
-							# its either a new file or we previously failed to complete the loop 
-							if self.last_update!=self.remote_actions["last_update"] or self.error_counter > 0 or self.new_tag_signal:
-								
-								systemd.daemon.notify("STATUS=Updating apt..")
-								
-								self.pprint("Updating phase...")
-								self.pprint("")
-								self.last_update=self.remote_actions["last_update"]
-								self.apt_cache=apt.Cache()
-								self.pprint("\tUpdating cache...")
-								try:
-									self.apt_cache.update()
-									# needs to be reopened after being updated
-									self.apt_cache.open()
-								except Exception as update_exc:
-									if LliurexAutoUpgrade.IGNORE_UPDATE_ERROR:
-										pass
-									else:
-										raise update_exc
-								
-								# This should be a safe place to reset new_tag_signal
-								self.new_tag_signal=False
+					systemd.daemon.notify("STATUS=Checking remote file")
+					self.remote_actions=self.get_actions_file()
+					if self.remote_actions is not None:
+						
+						# its either a new file or we previously failed to complete the loop 
+						if self.last_update!=self.remote_actions["last_update"] or self.error_counter > 0 or self.new_tag_signal:
+							
+							systemd.daemon.notify("STATUS=Updating apt...")
+							
+							self.pprint("Updating phase...")
+							self.pprint("")
+							self.last_update=self.remote_actions["last_update"]
+							self.apt_cache=apt.Cache()
+							self.pprint("\tUpdating cache...")
+							try:
+								self.apt_cache.update()
+								# needs to be reopened after being updated
+								self.apt_cache.open()
+							except Exception as update_exc:
+								if LliurexAutoUpgrade.IGNORE_UPDATE_ERROR:
+									self.pprint("Ignoring apt_cache.update error. Either permissions or lack of internet connection")
+								else:
+									raise update_exc
+							
+							# This should be a safe place to reset new_tag_signal
+							self.new_tag_signal=False
 
-								# this should not be necessary
-								#self.pprint("\tValidating %h certificate..."%self.hostname)
-								#self.check_certificate(self.hostname,self.org_id)
+							# this should not be necessary
+							#self.pprint("\tValidating %h certificate..."%self.hostname)
+							#self.check_certificate(self.hostname,self.org_id)
+							
+							self.pprint("\tGathering actions from server...")
+							self.my_actions=self.gather_actions()
+							self.print_my_actions()
+							self.mark_update()
+							self.mark_enforce()
+							self.pprint("\tInhibiting shutdown...")
+							fd_shutdown = manager.Inhibit("shutdown","lliurex-auto-upgrade","Updating system","block")
+							real_fd=fd_shutdown.take()
+							try:
+								self.execute()
+							finally:
+								self.pprint("\tReleasing shutdown inhibition...")
+								os.close(real_fd)
+							self.pprint("Done")
+							self.pprint("")
+						else:
+							self.pprint("Nothing to do")
+							self.pprint("")
+							systemd.daemon.notify("STATUS=Nothing to execute. Waiting for new updates.")
+					
+					# everything went wright. Lets clean status variables
+					self.error_counter=0
+					
+					if self.remote_actions is not None:
+						first_round_success=True
+						
+				except Exception as e:
+					self.pprint(f"Exception: {str(e)}")
+					systemd.daemon.notify(f"STATUS=Failed to execute: {str(e)}")
+					self.error_counter+=1
+
+				
+				if first_round_success:
+					# either everything is ok
+					sleep_counter=LliurexAutoUpgrade.SLEEP_TIME
+					# if we fail for some unknown reason. Lets try a faster loop MAX_ERROR_COUNTER times
+					if self.error_counter > 0 and self.error_counter < LliurexAutoUpgrade.MAX_ERROR_COUNTER:
+						sleep_counter=max(LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME,LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME * self.error_counter)
+					
+					
+					
+				else:
+					first_try_error_count+=1
+					if first_try_error_count == LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE:
+						# first_round success if being forced
+						first_round_success=True
+						# we leave a flag to know if first_round_success is being forced or not
+						failed_first_round=True
+					else:
+						# we have to reset last_update value to force new try after sleeping
+						self.last_update=None
+						
+					systemd.daemon.notify(f"STATUS=Failed to complete first run on try {first_try_error_count}/{LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE} . Retrying... ")	
+					self.pprint(f"Sleeping a reduced time since we failed to complete first run on try {first_try_error_count}/{LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE} ...")
+					sleep_counter=LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME
+
+
+				# Lliurex auto upgrade - unattended upgrades	
+				
+				try:
+					time_spent=0
+					# at least we want auto-upgrade to execute properly once
+					if first_round_success and self.is_unattended_upgrade_configured() and (unattended_loops < LliurexAutoUpgrade.UNATTENDED_LIMIT or LliurexAutoUpgrade.UNATTENDED_LIMIT<0) and not force_unattended_exit and not failed_first_round:
+						unattended_wait_time=LliurexAutoUpgrade.UNATTENDED_DELAY
+						self.pprint(f"Unattended upgrades are enabled. Starting unattended upgrades in {unattended_wait_time} seconds...")
+						systemd.daemon.notify("STATUS=Unattended upgrades are enabled. Starting unattended upgrades...")
+						t1=time.monotonic()
+						# we delay execution a bit
+						time.sleep(unattended_wait_time)
+						try:
+
+							self.get_filtered_packages()
+							ret=self.download_packages(LliurexAutoUpgrade.UNATTENDED_LIMIT)
+							# download_packages returns true when everything is already downloaded
+							if ret:
 								
-								self.pprint("\tGathering actions from server...")
-								self.my_actions=self.gather_actions()
-								self.print_my_actions()
-								self.mark_update()
-								self.mark_enforce()
 								self.pprint("\tInhibiting shutdown...")
 								fd_shutdown = manager.Inhibit("shutdown","lliurex-auto-upgrade","Updating system","block")
 								real_fd=fd_shutdown.take()
 								try:
-									self.execute()
+									ret2=self.install_packages(LliurexAutoUpgrade.UNATTENDED_LIMIT)
+									if ret2:
+										force_unattended_exit=True
 								finally:
 									self.pprint("\tReleasing shutdown inhibition...")
 									os.close(real_fd)
-								self.pprint("Done")
-								self.pprint("")
-							else:
-								self.pprint("Nothing to do")
-								self.pprint("")
-								systemd.daemon.notify("STATUS=Nothing to execute. Waiting for new updates.")
-						
-						# everything went wright. Lets clean status variables
-						self.error_counter=0
-						self.updating_loop=False
-						
-						if self.remote_actions != None:
-							first_round_success=True
-							
-					except Exception as e:
-						self.pprint("Exception: %s"%str(e))
-						systemd.daemon.notify("STATUS=Failed to execute: %s"%str(e))
-						self.error_counter+=1
-						self.updating_loop=False
+									
+							unattended_loops+=1
+						except Exception as e:
+							time_spent=int(time.monotonic()-t1)
+							raise(e)
+								
+						time_spent=int(time.monotonic()-t1)
 
-					
-					if first_round_success:
-						# either everything is ok
+				except Exception as e:
+					self.pprint(f"[!] Unattended upgrades failed: {str(e)}")
+					unattended_error_count+=1
+					sleep_counter=max(LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME,LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME*unattended_error_count)
+					if unattended_error_count>=LliurexAutoUpgrade.MAX_ERROR_COUNTER:
+						force_unattended_exit=True
+						self.pprint(f"Unattended upgrade failed {unattended_error_count} times. Giving up.")
 						sleep_counter=LliurexAutoUpgrade.SLEEP_TIME
-						# if we fail for some unknown reason. Lets try a faster loop MAX_ERROR_COUNTER times
-						if self.error_counter > 0 and self.error_counter < LliurexAutoUpgrade.MAX_ERROR_COUNTER:
-							sleep_counter=LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME
-							
-						self.pprint("Sleeping %s minutes until next loop..."%(sleep_counter/60))
-						
-					else:
-						first_try_error_count+=1
-						if first_try_error_count == LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE:
-							# next loop will wake in LliurexAutoUpgrade.SLEEP_TIME hour
-							first_round_success=True
-						else:
-							# we have to reset last_update value to force new try after sleeping
-							self.last_update=None
-							
-						systemd.daemon.notify("STATUS=Failed to complete first run on try %s/%s . Retrying... "%(first_try_error_count,LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE))	
-						self.pprint("Sleeping a reduced time since we failed to complete first run on try %s/%s ..."%(first_try_error_count,LliurexAutoUpgrade.MAX_RETRIES_FIRST_UPDATE))
-						sleep_counter=LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME
-						sleep_counter=LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME
-				else:
-					# current_sleep_counter is still bellow sleep_counter. We do nothing
-					pass
-					#self.pprint("Sleeping... %s/%s"%(current_sleep_counter,sleep_counter))
 				
-				time.sleep(LliurexAutoUpgrade.SLEEP_TIME_RESOLUTION)
+				
+				# what we should wait minus what unattended upgrade took to complete
+				# At least wait ALTERNAT_SLEEP_TIME
+				sleep_counter=max(LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME,sleep_counter-time_spent)
+				self.pprint(f"Sleeping {sleep_counter/60:.2f} minutes until next loop...")
+				woken_up_by_signal=self.wakeup_event.wait(timeout=sleep_counter)
+				self.wakeup_event.clear()
 				
 		else:
-			self.pprint("'%s' exists, service is disabled. Exiting..."%self.disable_file)
+			self.pprint(f"'{self.disable_file}' exists, service is disabled. Exiting...")
 		
 	#def server_loop
 	
 	def force_loop_signal(self,signum,frame):
 		
 		self.pprint("Force loop signal received.")
+		self.last_update="0"
 		
-		while self.updating_loop:
-			time.sleep(1)
-		
-		self.tags=self.get_tags()
-		self.print_system_info()
-		self.new_tag_signal=True
-		self.last_update=None		
+		self.wakeup_event.set()
 		
 	#def force_loop_signal
 	
@@ -261,22 +401,27 @@ class LliurexAutoUpgrade:
 	def pprint(self,data):
 		
 		if LliurexAutoUpgrade.DEBUG:
-			print("[LAU] %s"%str(data))
+			print(f"[LAU] {str(data)}")
 			
 		if LliurexAutoUpgrade.SYSLOG:
-			syslog.syslog("[LAU] %s"%str(data).replace("\t","    "))
+			data=str(data).replace("\t","    ")
+			syslog.syslog(f"[LAU] {data}")
 		
 	#def pprint
 
 	def find_process(self,name,strict=True):
 		
 		for proc in psutil.process_iter():
-			if strict:
-				if name.lower()== proc.name().lower():
-					return True
-			else:
-				if name.lower() in proc.name().lower():
-					return True
+			try:
+				if strict:
+					if name.lower()== proc.name().lower():
+						return True
+				else:
+					if name.lower() in proc.name().lower():
+						return True
+			except:
+				# ? just in case some proc is unavailable or its access denied
+				pass
 		return False
 		
 	#def find_process
@@ -289,7 +434,7 @@ class LliurexAutoUpgrade:
 			f.close()
 		
 			if psutil.pid_exists(self.pid):
-				self.pprint("Another lliurex-auto-upgrade process (%s) seems to be running. Exiting..."%self.pid)
+				self.pprint(f"Another lliurex-auto-upgrade process ({self.pid}) seems to be running. Exiting...")
 				sys.exit(0)
 
 		f=open(self.pid_file,"w")
@@ -320,12 +465,14 @@ class LliurexAutoUpgrade:
 				
 			def process_IN_CLOSE_WRITE(self,event):
 
-				self.main.pprint("New tag %s detected. Queuing new loop"%event.name)
-				systemd.daemon.notify("STATUS=New tag %s detected. Queuing new loop"%event.name)
+				self.main.pprint(f"New tag {event.name} detected. Queuing new loop")
+				systemd.daemon.notify(f"STATUS=New tag {event.name} detected. Queuing new loop")
 				self.main.tags=self.main.get_tags()
 				self.main.print_system_info()
 				self.main.new_tag_signal=True
 				self.main.last_update=None
+				self.main.wakeup_event.set()
+				
 	
 		notifier=Notifier(wm,Process_handler(self))
 		wm.add_watch(self.etc_tags_dir,mask,rec=True)
@@ -338,8 +485,9 @@ class LliurexAutoUpgrade:
 					notifier.read_events()
 				
 			except Exception as e:
-				self.pprint(e)
+
 				notifier.stop()
+				break
 					
 		return False
 	
@@ -361,7 +509,7 @@ class LliurexAutoUpgrade:
 			return True
 		
 		if package in self.apt_cache:
-			if self.apt_cache[package].candidate.uri !=None and self.apt_cache[package].candidate.uri.startswith("http://lliurex.net/"):
+			if self.apt_cache[package].candidate.uri is not None and self.apt_cache[package].candidate.uri.startswith("http://lliurex.net/"):
 				return True
 				
 		return False
@@ -410,7 +558,7 @@ class LliurexAutoUpgrade:
 		except Exception as e:
 			self.pprint("Failed to verify certificate.")
 			
-		if not verfied:
+		if not verified:
 			raise Exception("Failed to verify certificate.")
 		
 		return verified
@@ -420,12 +568,12 @@ class LliurexAutoUpgrade:
 	def get_actions_file(self,url=None):
 		
 		data=None
-		if url==None:
+		if url is None:
 			url=self.actions_url
 		
 		if not os.path.exists("lliurex_actions.json"):
 			try:
-				response = requests.get(url)
+				response = requests.get(url,timeout=10)
 				data = response.json()
 			except Exception as e:
 				self.pprint("Failed to download remote file.")
@@ -441,7 +589,7 @@ class LliurexAutoUpgrade:
 	
 	def get_lliurex_flavor(self):
 		
-		return subprocess.check_output("lliurex-version -f",shell=True).decode("utf-8").strip("\n")
+		return subprocess.check_output(["lliurex-version","-f"],text=True).strip("\n")
 		
 	#def get_lliurex_flavor
 	
@@ -484,7 +632,7 @@ class LliurexAutoUpgrade:
 		actions["enforce"]=[]
 		flavors=["common"]
 		
-		if self.flavor!=None:
+		if self.flavor is not None:
 			flavors.append(self.flavor)
 		
 		for flavor in flavors:
@@ -525,7 +673,7 @@ class LliurexAutoUpgrade:
 		
 		for package in self.my_actions["update"]:
 			if self.is_package_upgradable(package):
-				self.pprint("Marking %s update..."%package)
+				self.pprint(f"Marking {package} update...")
 				self.apt_cache[package].mark_upgrade()
 				self.packages_to_update=True
 				
@@ -537,12 +685,12 @@ class LliurexAutoUpgrade:
 		
 		for package in self.my_actions["enforce"]:
 			if package in self.apt_cache and not self.is_package_installed(package) and self.is_package_from_lliurex_net(package):
-				self.pprint("Marking %s enforce..."%package)
+				self.pprint(f"Marking {package} enforce...")
 				self.packages_to_enforce=True
 				self.apt_cache[package].mark_install()
 			else:
 				if self.is_package_upgradable(package):
-					self.pprint("Marking %s enforce..."%package)
+					self.pprint(f"Marking {package} enforce...")
 					self.packages_to_enforce=True
 					self.apt_cache[package].mark_upgrade()
 					
@@ -550,12 +698,16 @@ class LliurexAutoUpgrade:
 	
 	def fixes_before_execution(self):
 		
-		if self.apt_cache.dpkg_journal_dirty:
-			self.pprint("\t\tExecuting dpkg --configure -a ...")
-			os.system("dpkg --configure -a")
-		self.pprint("\t\tExecuting apt install -f...")
-		os.system("apt install -f")
-		# this call is caousing marked packages not to update. Trying to call apt install -f manually instead
+		self.pprint("Fixes before execution...")
+		
+		if (self.apt_cache is not None and self.apt_cache.dpkg_journal_dirty) or self.apt_cache is None:
+			self.pprint("Executing dpkg --configure -a ...")
+			subprocess.Popen(["dpkg","--configure","-a"],start_new_session=True).communicate()
+			
+		self.pprint("Executing apt install -f ...")
+		subprocess.Popen(["apt","install","-f"],start_new_session=True).communicate()
+
+		# If you want to use fix_broken, this has to be executed BEFORE marking packages as it clears upgrade/install states.
 		# self.apt_cache.fix_broken()
 		
 	#def fixes_before_execution
@@ -571,12 +723,12 @@ class LliurexAutoUpgrade:
 			
 			for package in self.apt_cache:
 				if self.apt_cache[package].marked_install or self.apt_cache[package].marked_upgrade:
-					package_list+="%s "%package
+					package_list+=f"{package} "
 			
 			self.write_run_log(package_list)
 			
-			systemd.daemon.notify("STATUS=Installing packages: %s"%package_list)
-			self.pprint("\t\tInstalling packages: %s"%package_list)
+			systemd.daemon.notify(f"STATUS=Installing packages: {package_list}")
+			self.pprint(f"\t\tInstalling packages: {package_list}")
 			self.apt_cache.commit()
 			systemd.daemon.notify("STATUS=Installing finished. Waiting for new updates.")
 		else:
@@ -594,17 +746,17 @@ class LliurexAutoUpgrade:
 			with open(self.run_log,"w") as f:
 				f.write(package_list_str)
 			
-		except:
-			pass
+		except Exception as e:
+			self.pprint(f"Failed to write log: {str(e)}")
 		
 	#def write_run_log
 	
 	def print_my_actions(self):
 		
 		self.pprint("\tUpdate:")
-		self.pprint("\t\t%s"%self.my_actions["update"])
+		self.pprint(f"\t\t{self.my_actions['update']}")
 		self.pprint("\tEnforce:")
-		self.pprint("\t\t%s"%self.my_actions["enforce"])
+		self.pprint(f"\t\t{self.my_actions['enforce']}")
 		
 	#def print_my_actions
 	
@@ -612,22 +764,22 @@ class LliurexAutoUpgrade:
 		
 		self.pprint("")
 		self.pprint("System info:")
-		self.pprint("\tFlavor: %s"%str(self.flavor))
+		self.pprint(f"\tFlavor: {self.flavor}")
 		self.pprint("\tTags:")
 		if "run" in self.tags_dic and len(self.tags_dic["run"]) > 0:
-			self.pprint("\t * Auto generated tags in %s :"%self.run_tags_dir)
+			self.pprint(f"\t * Auto generated tags in {self.run_tags_dir} :")
 			for tag in self.tags_dic["run"]:
-				self.pprint("\t\t%s"%tag)
+				self.pprint(f"\t\t{tag}")
 			
 		if "usr" in self.tags_dic and len(self.tags_dic["usr"]) > 0:
-			self.pprint("\t * Installed tags in %s :"%self.usr_tags_dir)
+			self.pprint(f"\t * Installed tags in {self.usr_tags_dir} :")
 			for tag in self.tags_dic["usr"]:
-				self.pprint("\t\t%s"%tag)
+				self.pprint(f"\t\t{tag}")
 				
 		if "etc" in self.tags_dic and len(self.tags_dic["etc"]) > 0:
-			self.pprint("\t * Configured tags in %s :"%self.etc_tags_dir)
+			self.pprint(f"\t * Configured tags in {self.etc_tags_dir} :")
 			for tag in self.tags_dic["etc"]:
-				self.pprint("\t\t%s"%tag)
+				self.pprint(f"\t\t{tag}")
 		
 		self.pprint("")
 		
@@ -635,19 +787,6 @@ class LliurexAutoUpgrade:
 	
 	def print_remote_actions(self,data):
 		
-		'''
-		self.pprint("")
-		self.pprint("Last Update: %s"%data["last_update"])
-		self.pprint("Flavors:")
-		for flavor in data["flavors"]:
-			self.pprint("\t%s"%flavor)
-			self.pprint("\t\tUpdate:")
-			for update in data["flavors"][flavor]["update"]:
-				self.pprint("\t\t\t%s"%update)
-			self.pprint("\t\tEnforce:")
-			for enforce in data["flavors"][flavor]["enforce"]:
-				self.pprint("\t\t\t%s"%enforce)	
-		'''
 		print(json.dumps(data,indent=4))
 		
 	#def print_remote_actions
@@ -673,46 +812,46 @@ class LliurexAutoUpgrade:
 			self.mark_update()
 			self.mark_enforce()
 
-			# Forcing package to see something when testing
-			# This line should be commented 
-			#self.apt_cache["systemd"].mark_upgrade()
-			
 			changes=self.apt_cache.get_changes()
 			
 			for package in changes:
 				
-				self.pprint("%s=%s needs to be installed."%(package.name,package.candidate.version))
+				self.pprint(f"{package.name}={package.candidate.version} needs to be installed.")
 				
 			if len(changes)==0:
 				
 				self.pprint("Up to date. Nothing to install")
 				
 		except Exception as e:
-			self.pprint("[!] Failed to dry-run: %s"%str(e))
+			self.pprint(f"[!] Failed to dry-run: {str(e)}")
 			
 	#def dry_run
 	
 	def _remote_tags(self):
 		
-		data=lau.get_actions_file()
-		lau.print_remote_actions(data)
+		data=self.get_actions_file()
+		self.print_remote_actions(data)
 		
 	#def remote_tags
 	
 	def _system_tags(self):
 		
-		self.flavor=lau.get_lliurex_flavor()
-		self.tags=lau.get_tags()
+		self.flavor=self.get_lliurex_flavor()
+		self.tags=self.get_tags()
 		self.print_system_info()
 		
 	#def system_tags
 	
 	def add_tag(self,tag):
 		
+		if ".." in tag or "/" in tag:
+			self.pprint("Absolute or relative paths are not allowed.")
+			return False
+		
 		tag_path=os.path.join(self.etc_tags_dir,tag)
 		
 		if os.path.exists(tag_path):
-			self.pprint("[!] Tag %s already exists. [!]"%tag)
+			self.pprint(f"[!] Tag {tag} already exists. [!]")
 			return False
 		
 		open(tag_path,"w").close()
@@ -722,10 +861,14 @@ class LliurexAutoUpgrade:
 	
 	def delete_tag(self,tag):
 
+		if ".." in tag or "/" in tag:
+			self.pprint("Absolute or relative paths are not allowed.")
+			return False
+
 		tag_path=os.path.join(self.etc_tags_dir,tag)
 		
 		if not os.path.exists(tag_path):
-			self.pprint("[!] Tag %s does not exist. [!]"%tag)
+			self.pprint(f"[!] Tag {tag} does not exist. [!]")
 			return False
 		
 		os.remove(tag_path)
@@ -742,8 +885,8 @@ class LliurexAutoUpgrade:
 		print("\tremote-tags: print remote rules.")
 		print("\tsystem-tags: print system tags.")
 		print("\tdry-run: Checks local and remote tags and lists pending updates.")
-		print("\tadd-tag: Creates a new tag in %s ."%self.etc_tags_dir )
-		print("\tadd-tag: Deletes a tag in %s ."%self.etc_tags_dir )
+		print(f"\tadd-tag: Creates a new tag in {self.etc_tags_dir} .")
+		print(f"\tdelete-tag: Deletes a tag in {self.etc_tags_dir} .")
 		print()
 		
 		sys.exit(0)
@@ -761,18 +904,419 @@ class LliurexAutoUpgrade:
 		
 	#def check_root
 	
+	
+	# ## LLIUREX AUTO UPGRADE - UNATTENDED UPGRADES 
+	
+	
+	def get_lliurex_filter(self,filter_path=None):
+		
+		if not filter_path:
+			filter_path=self.lliurex_packages
+			
+		if not os.path.exists(filter_path):
+			return []
+		
+		if os.path.exists(filter_path):
+			with open(filter_path) as f:
+				lines=f.readlines()
+				
+		package_list=[]
+		
+		for line in lines:
+			line=line.strip()
+			if len(line)>0 and line not in package_list:
+				package_list.append(line)
+				
+		return package_list
+	
+
+	def get_filtered_packages(self,filter_path=None):
+		
+		lliurex_packages=self.get_lliurex_filter(filter_path)
+		self.download_cache=apt.Cache()
+		self.pprint("Gathering unattended upgrade package list...")
+		systemd.daemon.notify("STATUS=Gathering unattended upgrade package list...")
+		try:
+			self.download_cache.update()
+			# needs to be reopened after being updated
+			self.download_cache.open()
+		except Exception as update_exc:
+			if LliurexAutoUpgrade.IGNORE_UPDATE_ERROR:
+				pass
+			else:
+				raise update_exc
+		
+		self.download_cache.upgrade(dist_upgrade=True)
+		
+		lliurex_db=UpdateDB("lliurex")
+		security_db=UpdateDB("security")
+		ubuntu_db=UpdateDB("ubuntu")
+		linux_db=UpdateDB("linux")
+		linux_db.filter=["linux-","amd-firmware","virtualbox"]
+		packages_to_remove=[]
+		
+		self.auto_installed=[]
+		
+		update_counter=0
+		install_counter=0
+		
+		lvt=self.download_cache["lliurex-version-timestamp"]
+		lvt_version=lvt.candidate.version
+		
+		self.update_unattended_conf(lvt_version)
+
+		for pkg in self.download_cache:
+			
+			linux_found=False
+			candidate=pkg.candidate
+			
+			# if we do this, lliurex-up will think there are updates available
+			# lets update auto_removable packages anyway. 
+			
+			#if pkg.is_auto_removable:
+			#	continue
+		
+			if pkg.marked_delete:
+				packages_to_remove.append(pkg.name)
+				continue
+
+			if pkg.is_installed and pkg.is_auto_installed:
+				self.auto_installed.append(pkg.name)
+				
+			if pkg.marked_upgrade and pkg.is_installed:
+				
+				update_counter+=1
+				
+				if pkg.name in lliurex_packages:
+					lliurex_db.add_upgrade(pkg.name,candidate.size)
+					continue
+					
+				else:
+					
+					for origin in candidate.origins:
+						if "-security" in origin.codename:
+							for filter in linux_db.filter:
+								if pkg.name.startswith(filter):
+									linux_found=True
+									break
+							if not linux_found:
+								security_db.add_upgrade(pkg.name,candidate.size)
+							break
+							
+					if pkg.name not in security_db.upgrade and pkg.name not in lliurex_db.upgrade:
+						for filter in linux_db.filter:
+							if pkg.name.startswith(filter):
+								linux_db.add_upgrade(pkg.name,candidate.size)
+								linux_found=True
+								break
+						if not linux_found:
+							ubuntu_db.add_upgrade(pkg.name,candidate.size)
+						
+				
+			if pkg.marked_install and not pkg.is_installed:
+				install_counter+=1
+				
+				if pkg.name in lliurex_packages:
+					lliurex_db.add_install(pkg.name,candidate.size)
+					
+				else:
+
+					for origin in candidate.origins:
+						if "-security" in origin.codename:
+							for filter in linux_db.filter:
+								if pkg.name.startswith(filter):
+									linux_found=True
+									break
+							if not linux_found:
+								security_db.add_install(pkg.name,candidate.size)	
+							break
+							
+					if pkg.name not in security_db.install and pkg.name not in lliurex_db.install:
+						for filter in linux_db.filter:
+							if pkg.name.startswith(filter):
+								linux_db.add_install(pkg.name,candidate.size)
+								linux_found=True
+								break
+						if not linux_found:
+							ubuntu_db.add_install(pkg.name,candidate.size)
+						
+			
+
+		self.download_cache.clear()
+		
+		self.update_db={}
+		
+		self.update_db[lliurex_db.db_name]=lliurex_db
+		self.update_db[security_db.db_name]=security_db
+		self.update_db[ubuntu_db.db_name]=ubuntu_db
+		self.update_db[linux_db.db_name]=linux_db
+
+		for item in self.unattended_conf["priority"]:
+			self.update_db[item].pprint()
+			print(self.update_db[item].install)
+			print(self.update_db[item].upgrade)
+			
+			
+		self.pprint("DB: ALL")
+		size=(lliurex_db.install_size+security_db.install_size+linux_db.install_size+ubuntu_db.install_size)/1024/1024
+		self.pprint(f"\t New packages size: {size:2f} MB")
+		size=(lliurex_db.upgrade_size+security_db.upgrade_size+linux_db.upgrade_size+ubuntu_db.upgrade_size)/1024/1024
+		self.pprint(f"\t Upgrade packages size: {size:.2f} MB" )
+		size=(lliurex_db.size+security_db.size+linux_db.size+ubuntu_db.size)/1024/1024
+		self.pprint(f"\t Total size: {size:.2f} MB" )
+
+		
+
+		return self.update_db
+
+	#def get
+	
+	def download_packages(self,limit=-1):
+		
+		if self.update_db is None:
+			return False
+
+		downloaded=True
+		is_proxified=self.am_i_proxified()
+
+		if self.unattended_conf["proxified"]!=is_proxified:
+			
+			self.pprint("Unattended upgrade proxy configuration differs from network state. Resetting downloaded status...")
+			for item in self.unattended_conf["priority"]:
+				self.unattended_conf["downloaded"][item]=False
+			self.unattended_conf["proxified"]=is_proxified
+			self.write_unattended_conf()
+
+		download_counter = 0
+		
+		for item in self.unattended_conf["priority"]:
+			
+			if download_counter >= limit and limit >0:
+				self.pprint("Unattended upgrade download limit reached. Waiting until next reboot.")
+				systemd.daemon.notify("STATUS=Unattended upgrade download limit reached. Wait until next reboot.")
+				return False
+			
+			if not self.unattended_conf["downloaded"][item]:
+				downloaded=False
+				
+				if self.download_cache is None:
+					self.download_cache=apt.Cache()
+					try:
+						self.download_cache.update()
+						self.download_cache.open()
+					except Exception as update_exc:
+						raise update_exc
+						
+				
+
+				self.pprint("Gathering unattended upgrade package list...")
+				systemd.daemon.notify("STATUS=Gathering unattended upgrade package list...")
+
+					
+				for pkg in self.update_db[item].install:
+					self.download_cache[pkg].mark_install()
+				
+				for pkg in self.update_db[item].upgrade:
+					self.download_cache[pkg].mark_upgrade()
+				
+				try:
+					self.pprint(f"Downloading {item} packages...")
+					systemd.daemon.notify(f"STATUS=Unattended upgrade is downloading {item} packages...")
+					self.download_cache.fetch_archives()
+					self.unattended_conf["downloaded"][item]=True
+					self.write_unattended_conf()
+					self.pprint(f"{item} packages downloaded.")
+					systemd.daemon.notify(f"STATUS=Unattended upgrade {item} packages have been downloaded.")
+					download_counter+=1
+				except Exception as e:
+					self.pprint(f"Error downloading packages: {str(e)}")
+					raise e
+				
+				self.download_cache.clear()
+	
+		if downloaded:
+			self.pprint("Unattended upgrade has downloaded every component.")
+			systemd.daemon.notify("STATUS=Unattended upgrade has downloaded every component.")		
+			return True
+			
+		# we dont want to speed up downloaded notification. Only when a loop occurs where every element is already downloaded
+		# we return True
+		
+		return False
+		
+	#def download_packages
+	
+	def install_packages(self,limit=-1):
+
+		fixes_executed=False
+		install_counter = 0
+		
+		for item in self.unattended_conf["priority"]:
+			
+			if install_counter >= limit and limit >0:
+				self.pprint("Unattended upgrade install limit reached. Waiting until next reboot.")
+				systemd.daemon.notify("STATUS=Unattended upgrade install limit reached. Wait until next reboot.")
+				return False
+			
+			if not self.unattended_conf["installed"][item]:
+				installed=False
+				
+				if not fixes_executed:
+					self.fixes_before_execution()
+					fixes_executed=True
+
+				self.pprint(f"Installing {item} packages...")
+
+				systemd.daemon.notify(f"STATUS=Unattended upgrade is installing {item} packages...")
+				command_line = ["systemd-run","--wait","--description=lliurex-auto-upgrade-unattended-install","--unit=lliurex-auto-upgrade-unattended-install","--pty","apt","-y","install"]
+				command_line += self.update_db[item].install
+				command_line += self.update_db[item].upgrade
+				p=subprocess.Popen(command_line,start_new_session=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,text=True,close_fds=True)
+				#stdout, stderr = p.communicate()
+				
+				for line in p.stdout:
+					self.pprint(line.strip())
+				
+				rc=p.wait()
+				
+				if rc == 0:
+					self.unattended_conf["installed"][item]=True
+					self.write_unattended_conf()
+					install_counter +=1
+					self.pprint(f"{item} packages installed.")
+					command_line = ["systemd-run","--wait","--description=lliurex-auto-upgrade-unattended-install","--unit=lliurex-auto-upgrade-unattended-install","--pty","apt-mark","auto"]
+					command_line += self.auto_installed
+					subprocess.Popen(command_line,start_new_session=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,text=True,close_fds=True).communicate()
+					systemd.daemon.notify(f"STATUS=Unattended upgrade {item} packages have been installed.")
+				else:
+					raise Exception(f"Unattended upgrades install failed: {p.stderr.read()}")				
+				
+		
+		for item in self.unattended_conf["priority"]:
+			if not self.unattended_conf["installed"][item]:
+				return False
+
+		self.pprint("Unattended upgrade has installed every component.")
+		systemd.daemon.notify("STATUS=Unattended upgrade has installed every component.")
+		return True
+				
+		
+	#def install_packages
+
+	def update_unattended_conf(self,timestamp_version):
+		
+		if self.unattended_conf is None:
+			self.read_unattended_conf()
+			
+		if Version(self.unattended_conf["lliurex-version-timestamp"]) < Version(timestamp_version):
+			self.unattended_conf["lliurex-version-timestamp"]=timestamp_version
+			for block in self.unattended_conf["priority"]:
+				self.unattended_conf["downloaded"][block]=False
+				self.unattended_conf["installed"][block]=False
+				
+			self.write_unattended_conf(self.unattended_conf)
+		
+	#def update_unattended_conf
+	
+	def read_unattended_conf(self):
+		
+		if not os.path.exists(self.unattended_conf_file):
+			
+			data=self.generate_unattended_conf()
+			self.write_unattended_conf(data)
+			
+			self.unattended_conf=data
+			
+		else:
+			try:
+				with open(self.unattended_conf_file) as f:
+					self.unattended_conf=json.load(f)
+			except:
+				self.unattended_conf=self.generate_unattended_conf()
+				
+		return True
+				
+	#def read_unattended_conf
+	
+	def write_unattended_conf(self,data=None):
+		
+		if data is None:
+			data = self.unattended_conf
+			
+		tmp=json.dumps(data,indent=4,ensure_ascii=False)
+		with open(self.unattended_conf_file,"w") as f:
+			f.write(tmp)
+				
+		return True
+		
+	#def write_unattended_conf
+	
+	def generate_unattended_conf(self):
+		
+		data={}
+		data["enabled"]=True
+		data["proxified"]=False
+		data["downloaded"]={}
+		data["downloaded"]["lliurex"]=False
+		data["downloaded"]["security"]=False
+		data["downloaded"]["ubuntu"]=False
+		data["downloaded"]["linux"]=False
+		data["installed"]={}
+		data["installed"]["lliurex"]=False
+		data["installed"]["security"]=False
+		data["installed"]["ubuntu"]=False
+		data["installed"]["linux"]=False
+		data["priority"]=["lliurex","security","linux","ubuntu"]
+		data["lliurex-version-timestamp"]="0"
+		
+		return data
+		
+	#def generate_unattended_conf
+	
+	def is_unattended_upgrade_configured(self):
+		
+		ret = False
+		if os.path.exists(self.unattended_conf_file):
+			self.read_unattended_conf()
+			ret = self.unattended_conf["enabled"]
+		return ret 
+		
+	#def is_unattended_upgrade_configured
+	
+	def am_i_proxified(self):
+		
+		# we still dont have a proxy. So for now it always returns False
+		return False
+		
+	#def am_i_proxified
+	
 #class LliurexAutoUpdater
 
 
 if __name__=="__main__":
 	
 	lau=LliurexAutoUpgrade()
+	#lau.get_filtered_packages()
+	#sys.exit(0)
+
 	if len(sys.argv)>1:
 		
 		option=sys.argv[1]
 		if option=="serve":
 			lau.check_root()
 			lau.serve_forever()
+		if option=="enable-unattended-upgrades":
+			lau.check_root()
+			if not os.path.exists(lau.unattended_conf_file):
+				data=lau.generate_unattended_conf()
+				lau.write_unattended_conf(data)
+			else:
+				lau.read_unattended_conf()
+				lau.unattended_conf["enabled"]=True
+				lau.write_unattended_conf()
+		if option=="disable-unattended-upgrades":
+			if os.path.exists(lau.unattended_conf_file):
+				os.remove(lau.unattended_conf_file)
 		if option=="reload":
 			lau.check_root()
 			lau.send_force_signal()
@@ -802,5 +1346,3 @@ if __name__=="__main__":
 			
 	else:
 		lau.usage()
-
-			
