@@ -881,6 +881,8 @@ class LliurexAutoUpgrade:
 		print("")
 		print("\tserve: server used by systemd to manage updates automatically.")
 		print("\treload: forces server to reload local and remote tags as soon as possible.")
+		print("\tenable-unattended-upgrades: enables unattended upgrades.")
+		print("\tdisable-unattended-upgrades: disables unattended upgrades.")
 		print("\tremote-tags: print remote rules.")
 		print("\tsystem-tags: print system tags.")
 		print("\tdry-run: Checks local and remote tags and lists pending updates.")
@@ -1052,9 +1054,6 @@ class LliurexAutoUpgrade:
 
 		for item in self.unattended_conf["priority"]:
 			self.update_db[item].pprint()
-			print(self.update_db[item].install)
-			print(self.update_db[item].upgrade)
-			
 			
 		self.pprint("DB: ALL")
 		size=(lliurex_db.install_size+security_db.install_size+linux_db.install_size+ubuntu_db.install_size)/1024/1024
