@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.31.7) noble; urgency=medium
+
+  * Adding unattended upgrade support 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 08 Jul 2026 17:56:18 +0200
+
 lliurex-auto-upgrade (0.31.6) noble; urgency=medium
 
   * Fixed service unit with new lliurex-auto-upgrade serve call 
