@@ -1335,8 +1335,6 @@ class LliurexAutoUpgrade:
 if __name__=="__main__":
 	
 	lau=LliurexAutoUpgrade()
-	#lau.get_filtered_packages()
-	#sys.exit(0)
 
 	if len(sys.argv)>1:
 		
