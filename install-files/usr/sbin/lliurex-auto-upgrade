@@ -433,17 +433,15 @@ class LliurexAutoUpgrade:
 	def write_pid(self):
 		
 		if os.path.exists(self.pid_file):
-			f=open(self.pid_file)
-			self.pid=int(f.read())
-			f.close()
-		
+			with open(self.pid_file) as f:
+				self.pid=int(f.read())
+			
 			if psutil.pid_exists(self.pid):
 				self.pprint(f"Another lliurex-auto-upgrade process ({self.pid}) seems to be running. Exiting...")
 				sys.exit(0)
 
-		f=open(self.pid_file,"w")
-		f.write(str(os.getpid()))
-		f.close()
+		with open(self.pid_file,"w") as f:
+			f.write(str(os.getpid()))
 		
 	#def write_pid	
 
@@ -583,9 +581,8 @@ class LliurexAutoUpgrade:
 				self.pprint("Failed to download remote file.")
 				data=None
 		else:
-			f=open("lliurex_actions.json")
-			data=json.load(f)
-			f.close()
+			with open("lliurex_actions.json") as f:
+				data=json.load(f)
 
 		return data
 		
