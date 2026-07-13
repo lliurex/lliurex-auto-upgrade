@@ -1,3 +1,19 @@
+lliurex-auto-upgrade (0.32) jammy; urgency=medium
+
+  * Added check-unattended-upgrades cli option to gather unattended upgrades
+    information/state.
+  * Improved print information to include package count.
+  * Added remote server action override to allow svnlliurexnet to dinamically
+    disable unattended upgrades.
+  * Renamed 'linux' update category to 'kernel' and expanded kernel package
+    filter
+  * Package filter moved from being hardcoded to configuration-driven in
+    /etc/lliurex-auto-upgrade/unattended_upgrade.conf
+  * pprint method now allows calling with an empty default string.
+ 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Mon, 13 Jul 2026 13:11:07 +0200
+
 lliurex-auto-upgrade (0.31.8) jammy; urgency=medium
 
   * Missing usage options
