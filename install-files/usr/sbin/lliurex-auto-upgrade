@@ -81,9 +81,9 @@ class UpdateDB:
 		
 		print(f"DB: {self.db_name}")
 		size=self.install_size/1024/1024
-		print(f"\tNew packages size: {size:.2f} MB")
+		print(f"\tNew packages [{len(self.install)}] size: {size:.2f} MB")
 		size=self.upgrade_size/1024/1024
-		print(f"\tUpgrade packages size: {size:.2f} MB")
+		print(f"\tUpgrade packages [{len(self.upgrade)}] size: {size:.2f} MB")
 		size=self.size/1024/1024
 		print(f"\tTotal size: {size:.2f} MB")
 		
@@ -144,8 +144,6 @@ class LliurexAutoUpgrade:
 		self.usr_tags_dir=self.usr_dir+"/tags"
 		self.source_list=self.usr_dir+"/sources/lliurex.list"
 		self.lliurex_packages=self.usr_dir+"/packages/lliurex.pkgs"
-		
-		self.update_priority=["lliurex","security","linux","ubuntu"]
 		
 		self.packages_to_update=False
 		self.packages_to_enforce=False
@@ -319,8 +317,15 @@ class LliurexAutoUpgrade:
 				
 				try:
 					time_spent=0
+					
+					allowed_from_server = True
+					
+					if "stop_unattended_upgrade" in self.remote_actions and self.remote_actions["stop_unattended_upgrade"]:
+						allowed_from_server = False
+						self.pprint("[!] Lliurex.net is disabling unattended upgrade [!]")
+					
 					# at least we want auto-upgrade to execute properly once
-					if first_round_success and self.is_unattended_upgrade_configured() and (unattended_loops < LliurexAutoUpgrade.UNATTENDED_LIMIT or LliurexAutoUpgrade.UNATTENDED_LIMIT<0) and not force_unattended_exit and not failed_first_round:
+					if first_round_success and self.is_unattended_upgrade_configured() and (unattended_loops < LliurexAutoUpgrade.UNATTENDED_LIMIT or LliurexAutoUpgrade.UNATTENDED_LIMIT<0) and not force_unattended_exit and not failed_first_round and allowed_from_server:
 						unattended_wait_time=LliurexAutoUpgrade.UNATTENDED_DELAY
 						self.pprint(f"Unattended upgrades are enabled. Starting unattended upgrades in {unattended_wait_time} seconds...")
 						systemd.daemon.notify("STATUS=Unattended upgrades are enabled. Starting unattended upgrades...")
@@ -397,8 +402,8 @@ class LliurexAutoUpgrade:
 		
 	#def send_force_signal
 	
-	def pprint(self,data):
-		
+	def pprint(self,data=""):
+				
 		if LliurexAutoUpgrade.DEBUG:
 			print(f"[LAU] {str(data)}")
 			
@@ -952,8 +957,8 @@ class LliurexAutoUpgrade:
 		lliurex_db=UpdateDB("lliurex")
 		security_db=UpdateDB("security")
 		ubuntu_db=UpdateDB("ubuntu")
-		linux_db=UpdateDB("linux")
-		linux_db.filter=["linux-","amd-firmware","virtualbox"]
+		linux_db=UpdateDB("kernel")
+		linux_db.filter=self.unattended_conf["kernel_filter"]
 		packages_to_remove=[]
 		
 		self.auto_installed=[]
@@ -1052,15 +1057,27 @@ class LliurexAutoUpgrade:
 		self.update_db[ubuntu_db.db_name]=ubuntu_db
 		self.update_db[linux_db.db_name]=linux_db
 
+		install_size=0
+		upgrade_size=0
+		total_size=0
+		install_packages_count=0
+		upgrade_packages_count=0
+		
 		for item in self.unattended_conf["priority"]:
 			self.update_db[item].pprint()
+			install_size+=self.update_db[item].install_size
+			upgrade_size+=self.update_db[item].upgrade_size
+			total_size+=self.update_db[item].size
+			install_packages_count+=len(self.update_db[item].install)
+			upgrade_packages_count+=len(self.update_db[item].upgrade)
+		
 			
 		self.pprint("DB: ALL")
-		size=(lliurex_db.install_size+security_db.install_size+linux_db.install_size+ubuntu_db.install_size)/1024/1024
-		self.pprint(f"\t New packages size: {size:2f} MB")
-		size=(lliurex_db.upgrade_size+security_db.upgrade_size+linux_db.upgrade_size+ubuntu_db.upgrade_size)/1024/1024
-		self.pprint(f"\t Upgrade packages size: {size:.2f} MB" )
-		size=(lliurex_db.size+security_db.size+linux_db.size+ubuntu_db.size)/1024/1024
+		size=install_size/1024/1024
+		self.pprint(f"\t New packages [{install_packages_count}] size: {size:2f} MB")
+		size=upgrade_size/1024/1024
+		self.pprint(f"\t Upgrade packages [{upgrade_packages_count}] size: {size:.2f} MB" )
+		size=total_size/1024/1024
 		self.pprint(f"\t Total size: {size:.2f} MB" )
 
 		
@@ -1258,18 +1275,42 @@ class LliurexAutoUpgrade:
 		data["downloaded"]["lliurex"]=False
 		data["downloaded"]["security"]=False
 		data["downloaded"]["ubuntu"]=False
-		data["downloaded"]["linux"]=False
+		data["downloaded"]["kernel"]=False
 		data["installed"]={}
 		data["installed"]["lliurex"]=False
 		data["installed"]["security"]=False
 		data["installed"]["ubuntu"]=False
-		data["installed"]["linux"]=False
-		data["priority"]=["lliurex","security","linux","ubuntu"]
+		data["installed"]["kernel"]=False
+		data["priority"]=["lliurex","security","kernel","ubuntu"]
+		data["kernel_filter"]=["linux-","amd-firmware","virtualbox","dkms","plymouth","grub","initramfs-"]
 		data["lliurex-version-timestamp"]="0"
 		
 		return data
 		
 	#def generate_unattended_conf
+	
+	def check_unattended_upgrades(self):
+		
+		if self.unattended_conf is None:
+			self.pprint("[!] Unattended upgreades are not configured [!]")
+			return False
+		
+		self.pprint("Current lliurex-version-timestamp:")
+		self.pprint(f"\t* {self.unattended_conf['lliurex-version-timestamp']}")
+		self.pprint()
+		self.pprint("Downloaded state:")
+		for priority in self.unattended_conf['downloaded']:
+			self.pprint(f"\t* {priority}: {self.unattended_conf['downloaded'][priority]}")
+		self.pprint()	
+		self.pprint("Installed state:")
+		for priority in self.unattended_conf['installed']:
+			self.pprint(f"\t* {priority}: {self.unattended_conf['installed'][priority]}")
+		self.pprint()	
+		self.pprint("Current kernel packages filter:")
+		for package in self.unattended_conf["kernel_filter"]:
+			self.pprint(f"\t* {package}")
+		
+	#def
 	
 	def is_unattended_upgrade_configured(self):
 		
@@ -1315,6 +1356,16 @@ if __name__=="__main__":
 		if option=="disable-unattended-upgrades":
 			if os.path.exists(lau.unattended_conf_file):
 				os.remove(lau.unattended_conf_file)
+		if option=="check-unattended-upgrades":
+			if not os.path.exists(lau.unattended_conf_file):
+				print("[!] There is no unattended upgrade configuration file [!]")
+			else:
+				if lau.is_unattended_upgrade_configured():
+					lau.check_unattended_upgrades()
+				else:
+					print("[!] Unattended upgrades are disabled by configuration file [!]")
+					print(f"[!] {lau.unattended_conf_file} [!]")
+					
 		if option=="reload":
 			lau.check_root()
 			lau.send_force_signal()
