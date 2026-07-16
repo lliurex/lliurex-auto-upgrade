@@ -145,6 +145,8 @@ class LliurexAutoUpgrade:
 		self.source_list=self.usr_dir+"/sources/lliurex.list"
 		self.lliurex_packages=self.usr_dir+"/packages/lliurex.pkgs"
 		
+		self.cache_dir="/var/cache/lliurex-auto-upgrade"
+		
 		self.packages_to_update=False
 		self.packages_to_enforce=False
 		
@@ -159,6 +161,9 @@ class LliurexAutoUpgrade:
 		self.error_counter=0
 		self.wakeup_event=threading.Event()
 		self.auto_installed=[]
+
+		if not os.path.exists(self.cache_dir+"/archives/partial"):
+			os.makedirs(os.path.join(self.cache_dir,"archives/partial"),exist_ok=True)
 
 		apt_pkg.init_config()
 		apt_pkg.config.set("Dir::Etc::SourceList",self.source_list)
@@ -254,7 +259,7 @@ class LliurexAutoUpgrade:
 
 							# this should not be necessary
 							#self.pprint("\tValidating %h certificate..."%self.hostname)
-							#self.check_certificate(self.hostname,self.org_id)
+							self.check_certificate(self.hostname,self.org_id)
 							
 							self.pprint("\tGathering actions from server...")
 							self.my_actions=self.gather_actions()
@@ -573,16 +578,12 @@ class LliurexAutoUpgrade:
 		if url is None:
 			url=self.actions_url
 		
-		if not os.path.exists("lliurex_actions.json"):
-			try:
-				response = requests.get(url,timeout=10)
-				data = response.json()
-			except Exception as e:
-				self.pprint("Failed to download remote file.")
-				data=None
-		else:
-			with open("lliurex_actions.json") as f:
-				data=json.load(f)
+		try:
+			response = requests.get(url,timeout=10)
+			data = response.json()
+		except Exception as e:
+			self.pprint("Failed to download remote file.")
+			data=None
 
 		return data
 		
@@ -703,10 +704,9 @@ class LliurexAutoUpgrade:
 		
 		if (self.apt_cache is not None and self.apt_cache.dpkg_journal_dirty) or self.apt_cache is None:
 			self.pprint("Executing dpkg --configure -a ...")
-			subprocess.Popen(["dpkg","--configure","-a"],start_new_session=True).communicate()
-			
+			subprocess.run(["dpkg","--configure","-a"])
 		self.pprint("Executing apt install -f ...")
-		subprocess.Popen(["apt","install","-f"],start_new_session=True).communicate()
+		subprocess.run(["apt","install","-f"])
 
 		# If you want to use fix_broken, this has to be executed BEFORE marking packages as it clears upgrade/install states.
 		# self.apt_cache.fix_broken()
