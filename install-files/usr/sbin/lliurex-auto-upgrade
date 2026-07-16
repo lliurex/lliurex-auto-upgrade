@@ -258,8 +258,9 @@ class LliurexAutoUpgrade:
 							self.new_tag_signal=False
 
 							# this should not be necessary
-							#self.pprint("\tValidating %h certificate..."%self.hostname)
-							self.check_certificate(self.hostname,self.org_id)
+							self.pprint(f"\tValidating {self.hostname} certificate...")
+							if not self.check_certificate(self.hostname,self.org_id):
+								raise Exception(f"Failed to verify {self.hostname}:{self.org_id} certificate.")
 							
 							self.pprint("\tGathering actions from server...")
 							self.my_actions=self.gather_actions()
@@ -561,6 +562,7 @@ class LliurexAutoUpgrade:
 				key,value = item[0]
 				if key=="organizationIdentifier":
 					verified = value==org_id
+					break
 			
 		except Exception as e:
 			self.pprint("Failed to verify certificate.")
@@ -705,6 +707,7 @@ class LliurexAutoUpgrade:
 		if (self.apt_cache is not None and self.apt_cache.dpkg_journal_dirty) or self.apt_cache is None:
 			self.pprint("Executing dpkg --configure -a ...")
 			subprocess.run(["dpkg","--configure","-a"])
+			
 		self.pprint("Executing apt install -f ...")
 		subprocess.run(["apt","install","-f"])
 
@@ -1071,7 +1074,7 @@ class LliurexAutoUpgrade:
 			
 		self.pprint("DB: ALL")
 		size=install_size/1024/1024
-		self.pprint(f"\t New packages [{install_packages_count}] size: {size:2f} MB")
+		self.pprint(f"\t New packages [{install_packages_count}] size: {size:.2f} MB")
 		size=upgrade_size/1024/1024
 		self.pprint(f"\t Upgrade packages [{upgrade_packages_count}] size: {size:.2f} MB" )
 		size=total_size/1024/1024
@@ -1332,6 +1335,7 @@ class LliurexAutoUpgrade:
 if __name__=="__main__":
 	
 	lau=LliurexAutoUpgrade()
+
 
 	if len(sys.argv)>1:
 		
