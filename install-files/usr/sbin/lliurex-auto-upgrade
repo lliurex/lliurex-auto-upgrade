@@ -115,7 +115,7 @@ class LliurexAutoUpgrade:
 	if TESTING:
 		RANDOM_SLEEP_WINDOW=10
 		SLEEP_TIME=60
-	
+
 	DPKG_SLEEP=10
 	ALTERNATE_SLEEP_TIME=60
 	
@@ -229,7 +229,7 @@ class LliurexAutoUpgrade:
 					# wait for dpkgs to end
 					while self.find_process("dpkg"):
 						systemd.daemon.notify("STATUS=Waiting for dpkg to finish.")
-						time.sleep(LliurexAutoUpgrade.DPKG_SLEEP)
+						self.wakeup_event.wait(timeout=LliurexAutoUpgrade.DPKG_SLEEP)
 							
 					systemd.daemon.notify("STATUS=Checking remote file")
 					self.remote_actions=self.get_actions_file()
@@ -258,7 +258,7 @@ class LliurexAutoUpgrade:
 							# This should be a safe place to reset new_tag_signal
 							self.new_tag_signal=False
 
-							# this should not be necessary
+							
 							self.pprint(f"\tValidating {self.hostname} certificate...")
 							if not self.check_certificate(self.hostname,self.org_id):
 								# before raising an exception. Lets give lliurex-auto-upgrade a chance to update itself.
