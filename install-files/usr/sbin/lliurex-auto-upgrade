@@ -230,6 +230,7 @@ class LliurexAutoUpgrade:
 					while self.find_process("dpkg"):
 						systemd.daemon.notify("STATUS=Waiting for dpkg to finish.")
 						self.wakeup_event.wait(timeout=LliurexAutoUpgrade.DPKG_SLEEP)
+						self.wakeup_event.clear()
 							
 					systemd.daemon.notify("STATUS=Checking remote file")
 					self.remote_actions=self.get_actions_file()
