@@ -459,7 +459,7 @@ class LliurexAutoUpgrade:
 		f = open(self.pid_file,"w")
 
 		try:
-			fcntl.flock(self.pid_file_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+			fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
 		except:
 			self.pprint(f"Another lliurex-auto-upgrade instance is already running. Exiting...")
 			self.pprint(f"{self.pid_file}")
