@@ -15,6 +15,7 @@ import dbus
 import ssl
 import socket
 import setproctitle
+import fcntl
 
 import threading
 import signal 
@@ -438,17 +439,20 @@ class LliurexAutoUpgrade:
 	
 	def write_pid(self):
 		
-		if os.path.exists(self.pid_file):
-			with open(self.pid_file) as f:
-				self.pid=int(f.read())
-			
-			if psutil.pid_exists(self.pid):
-				self.pprint(f"Another lliurex-auto-upgrade process ({self.pid}) seems to be running. Exiting...")
-				sys.exit(0)
+		f = open(self.pid_file,"w")
 
-		with open(self.pid_file,"w") as f:
-			f.write(str(os.getpid()))
-		
+		try:
+			fcntl.flock(self.pid_file_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+		except:
+			self.pprint(f"Another lliurex-auto-upgrade instance is already running. Exiting...")
+			self.pprint(f"{self.pid_file}")
+			sys.exit(0)
+			
+		# we have to maintain self.pid_file open while lliurex-auto-upgrade is alive
+		f.write(str(os.getpid()))
+		f.flush()
+			
+			
 	#def write_pid	
 
 	def start_inotify(self):
