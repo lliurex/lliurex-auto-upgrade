@@ -116,7 +116,7 @@ class LliurexAutoUpgrade:
 		RANDOM_SLEEP_WINDOW=10
 		SLEEP_TIME=60
 	
-	DPKG_SLEEP=1
+	DPKG_SLEEP=10
 	ALTERNATE_SLEEP_TIME=60
 	
 	MAX_RETRIES_FIRST_UPDATE=10
@@ -261,6 +261,23 @@ class LliurexAutoUpgrade:
 							# this should not be necessary
 							self.pprint(f"\tValidating {self.hostname} certificate...")
 							if not self.check_certificate(self.hostname,self.org_id):
+								# before raising an exception. Lets give lliurex-auto-upgrade a chance to update itself.
+								# this is not perfect 
+								if self.apt_cache["lliurex-auto-upgrade"].is_upgradable:
+									self.pprint(f"{self.hostname} has changed its '{self.org_id}' field. Giving lliurex-auto-upgrade a chance to upgrade itself...")
+									self.apt_cache["lliurex-auto-upgrade"].mark_upgrade()
+									self.pprint("\tInhibiting shutdown...")
+									fd_shutdown = manager.Inhibit("shutdown","lliurex-auto-upgrade","Updating system","block")
+									real_fd=fd_shutdown.take()
+									try:
+										self.execute()
+									finally:
+										self.pprint("\tReleasing shutdown inhibition...")
+										os.close(real_fd)
+									
+									raise  Exception(f"Failed to verify {self.hostname}:{self.org_id} certificate. lliurex-auto-upgrade was updated anyway. Trying again...")
+									
+								
 								raise Exception(f"Failed to verify {self.hostname}:{self.org_id} certificate.")
 							
 							self.pprint("\tGathering actions from server...")
