@@ -1,3 +1,34 @@
+lliurex-auto-upgrade (0.33) jammy; urgency=medium
+
+   * Improved Unattended Upgrades Management:
+    - Set the APT cache directory to a custom path
+      (/var/cache/lliurex-auto-upgrade/archives).
+    - Replaced time.sleep with wakeup_event when waiting for dpkg processes
+      to finish, improving overall application responsiveness.
+    - Fixed a missing .clear() on the wakeup_event loop.
+    - Enhanced security validation: handled cases where check_certificate returns
+      unexpected values by allowing lliurex-auto-upgrade to automatically upgrade
+      itself prior to throwing an exception.
+    - Optimized error handling: reduced apt-mark terminal outputs during unattended
+      installations and trimmed failure exception messages to display only the last
+      20 lines of the output.
+    - Mitigated potential process deadlocks by switching subprocess.Popen streams
+      to use stdout=subprocess.PIPE and combining stderr into stdout.
+  * Process Locking Fixes:
+    - Migrated the PID file management to a more robust file-locking method
+      using fcntl.flock to prevent multiple concurrent instances from running.
+    - Fixed an incorrect file handle usage within the new fcntl implementation.
+  * Code Quality & Bug Fixes:
+    - Removed obsolete testing code, including simulated logic that skipped
+      downloading the lliurex_actions.json file.
+    - Cleaned up old Python file management logic by replacing manual open/close
+      calls with 'with open(...)' context managers.
+    - Fixed broken syntax in f-string print logs and optimized performance by
+      breaking early out of the certificate organization identifier check loop
+      once verified. 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Mon, 20 Jul 2026 12:47:28 +0200
+
 lliurex-auto-upgrade (0.32) jammy; urgency=medium
 
   * Added check-unattended-upgrades cli option to gather unattended upgrades
