@@ -169,6 +169,7 @@ class LliurexAutoUpgrade:
 		apt_pkg.init_config()
 		apt_pkg.config.set("Dir::Etc::SourceList",self.source_list)
 		apt_pkg.config.set("Dir::Etc::SourceParts",self.usr_dir+"/sources/")
+		apt_pkg.config.set("Dir::Cache::archives",self.cache_dir+"/archives")
 		apt_pkg.init_system()
 		
 		setproctitle.setproctitle("lliurex-auto-upgrade")
