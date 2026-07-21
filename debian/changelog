@@ -1,3 +1,10 @@
+lliurex-auto-upgrade (0.33.1) jammy; urgency=medium
+
+  * lliurex.pkgs is copied to /usr/share/lliurex-auto-upgrade/packages depending 
+    on RELEASE_CODENAME 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Tue, 21 Jul 2026 10:40:27 +0200
+
 lliurex-auto-upgrade (0.33) jammy; urgency=medium
 
    * Improved Unattended Upgrades Management:
