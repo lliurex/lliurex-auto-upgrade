@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.33.1) noble; urgency=medium
+
+  * Using a different lliurex.pkgs file per RELEASE CODENAME 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Tue, 21 Jul 2026 10:38:16 +0200
+
 lliurex-auto-upgrade (0.33) noble; urgency=medium
 
    * Improved Unattended Upgrades Management:
