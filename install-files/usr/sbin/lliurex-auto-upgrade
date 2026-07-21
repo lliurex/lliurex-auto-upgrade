@@ -449,27 +449,28 @@ class LliurexAutoUpgrade:
 				else:
 					if name.lower() in proc.name().lower():
 						return True
-			except:
+			except Exception as e:
 				# ? just in case some proc is unavailable or its access denied
-				pass
+				self.pprint(f"Error reading process: {str(e)}")
+				
 		return False
 		
 	#def find_process
 	
 	def write_pid(self):
 		
-		f = open(self.pid_file,"w")
+		self.lock_handle = open(self.pid_file,"w")
 
 		try:
-			fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+			fcntl.flock(self.lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
 		except:
 			self.pprint(f"Another lliurex-auto-upgrade instance is already running. Exiting...")
 			self.pprint(f"{self.pid_file}")
 			sys.exit(0)
 			
 		# we have to maintain self.pid_file open while lliurex-auto-upgrade is alive
-		f.write(str(os.getpid()))
-		f.flush()
+		self.lock_handle.write(str(os.getpid()))
+		self.lock_handle.flush()
 			
 			
 	#def write_pid	
@@ -605,6 +606,7 @@ class LliurexAutoUpgrade:
 		
 		try:
 			response = requests.get(url,timeout=10)
+			response.raise_for_status()
 			data = response.json()
 		except Exception as e:
 			self.pprint("Failed to download remote file.")
@@ -726,13 +728,23 @@ class LliurexAutoUpgrade:
 	def fixes_before_execution(self):
 		
 		self.pprint("Fixes before execution...")
+		env = os.environ.copy()
+		env["DEBIAN_FRONTEND"] = "noninteractive"
 		
-		if (self.apt_cache is not None and self.apt_cache.dpkg_journal_dirty) or self.apt_cache is None:
-			self.pprint("Executing dpkg --configure -a ...")
-			subprocess.run(["dpkg","--configure","-a"])
+		try:
+		
+			if (self.apt_cache is not None and self.apt_cache.dpkg_journal_dirty) or self.apt_cache is None:
+				self.pprint("Executing dpkg --configure -a ...")
+				subprocess.run(["dpkg","--configure","-a"],env=env,check=True)
+				
+			self.pprint("Executing apt install -f ...")
+			subprocess.run(["apt","install","-y","-f"],env=env,check=True)
 			
-		self.pprint("Executing apt install -f ...")
-		subprocess.run(["apt","install","-f"])
+			return True
+			
+		except Exception as e:
+			self.pprint(f"Failed to execute fixes {str(e)}")
+			return False
 
 		# If you want to use fix_broken, this has to be executed BEFORE marking packages as it clears upgrade/install states.
 		# self.apt_cache.fix_broken()
@@ -744,20 +756,22 @@ class LliurexAutoUpgrade:
 		if self.packages_to_update or self.packages_to_enforce:
 			systemd.daemon.notify("STATUS=Checking apt/dpkg status before installing packages")
 			self.pprint("\tUpdating system...")
-			self.fixes_before_execution()
 			
-			package_list=""
+			if self.fixes_before_execution():
 			
-			for package in self.apt_cache:
-				if self.apt_cache[package].marked_install or self.apt_cache[package].marked_upgrade:
-					package_list+=f"{package} "
-			
-			self.write_run_log(package_list)
-			
-			systemd.daemon.notify(f"STATUS=Installing packages: {package_list}")
-			self.pprint(f"\t\tInstalling packages: {package_list}")
-			self.apt_cache.commit()
-			systemd.daemon.notify("STATUS=Installing finished. Waiting for new updates.")
+				package_list=""
+				
+				for package in self.apt_cache:
+					if self.apt_cache[package].marked_install or self.apt_cache[package].marked_upgrade:
+						package_list+=f"{package} "
+				
+				self.write_run_log(package_list)
+				
+				systemd.daemon.notify(f"STATUS=Installing packages: {package_list}")
+				self.pprint(f"\t\tInstalling packages: {package_list}")
+				self.apt_cache.commit()
+				systemd.daemon.notify("STATUS=Installing finished. Waiting for new updates.")
+				
 		else:
 			systemd.daemon.notify("STATUS=Nothing to execute. Waiting for new updates.")
 			self.pprint("")
@@ -971,7 +985,7 @@ class LliurexAutoUpgrade:
 			self.download_cache.open()
 		except Exception as update_exc:
 			if LliurexAutoUpgrade.IGNORE_UPDATE_ERROR:
-				pass
+				self.pprint(f"[!] Ignoring {str(update_exc)} exception as configured.")
 			else:
 				raise update_exc
 		
@@ -1200,8 +1214,11 @@ class LliurexAutoUpgrade:
 				installed=False
 				
 				if not fixes_executed:
-					self.fixes_before_execution()
-					fixes_executed=True
+					if self.fixes_before_execution():
+						fixes_executed=True
+					else:
+						self.pprint(f"Unattended upgrade failed to fix apt/dpkg database. Giving up...")
+						return False
 
 				self.pprint(f"Installing {item} packages...")
 
@@ -1368,7 +1385,7 @@ if __name__=="__main__":
 		if option=="serve":
 			lau.check_root()
 			lau.serve_forever()
-		if option=="enable-unattended-upgrades":
+		elif option=="enable-unattended-upgrades":
 			lau.check_root()
 			if not os.path.exists(lau.unattended_conf_file):
 				data=lau.generate_unattended_conf()
@@ -1377,10 +1394,10 @@ if __name__=="__main__":
 				lau.read_unattended_conf()
 				lau.unattended_conf["enabled"]=True
 				lau.write_unattended_conf()
-		if option=="disable-unattended-upgrades":
+		elif option=="disable-unattended-upgrades":
 			if os.path.exists(lau.unattended_conf_file):
 				os.remove(lau.unattended_conf_file)
-		if option=="check-unattended-upgrades":
+		elif option=="check-unattended-upgrades":
 			if not os.path.exists(lau.unattended_conf_file):
 				print("[!] There is no unattended upgrade configuration file [!]")
 			else:
@@ -1390,17 +1407,17 @@ if __name__=="__main__":
 					print("[!] Unattended upgrades are disabled by configuration file [!]")
 					print(f"[!] {lau.unattended_conf_file} [!]")
 					
-		if option=="reload":
+		elif option=="reload":
 			lau.check_root()
 			lau.send_force_signal()
-		if option=="remote-tags":
+		elif option=="remote-tags":
 			lau._remote_tags()
-		if option=="system-tags":
+		elif option=="system-tags":
 			lau._system_tags()
-		if option=="dry-run":
+		elif option=="dry-run":
 			lau.check_root()
 			lau.dry_run(print_actions=True)
-		if option=="add-tag":
+		elif option=="add-tag":
 			lau.check_root()
 			try:
 				tag=sys.argv[2]
@@ -1408,7 +1425,7 @@ if __name__=="__main__":
 				print("[!] Missing tag name [!]\n")
 				lau.usage()
 			lau.add_tag(tag)
-		if option=="delete-tag":
+		elif option=="delete-tag":
 			lau.check_root()
 			try:
 				tag=sys.argv[2]
