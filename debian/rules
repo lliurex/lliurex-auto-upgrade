@@ -25,6 +25,7 @@
 override_dh_installdeb:
 	$(eval RELEASE_CODENAME := $(shell dpkg-parsechangelog -S Distribution))
 	sed -i 's/@@RELEASE@@/$(RELEASE_CODENAME)/g' debian/lliurex-auto-upgrade/usr/share/lliurex-auto-upgrade/sources/lliurex.list
+	cp lliurex-packages/${RELEASE_CODENAME}/lliurex.pkgs debian/lliurex-auto-upgrade/usr/share/lliurex-auto-upgrade/packages/
 	dh_installdeb
 
 
