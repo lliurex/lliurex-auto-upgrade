@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.33.2) noble; urgency=medium
+
+  * Better fixes_before_execution management 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 22 Jul 2026 12:16:59 +0200
+
 lliurex-auto-upgrade (0.33.1) noble; urgency=medium
 
   * lliurex.pkgs is copied to /usr/share/lliurex-auto-upgrade/packages depending 
