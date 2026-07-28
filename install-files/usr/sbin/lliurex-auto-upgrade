@@ -1239,17 +1239,33 @@ class LliurexAutoUpgrade:
 				
 				rc=p.wait()
 				
-				if rc == 0:
-					self.unattended_conf["installed"][item]=True
-					self.write_unattended_conf()
-					install_counter +=1
-					self.pprint(f"{item} packages installed.")
-					command_line = ["systemd-run","--wait","--description=lliurex-auto-upgrade-unattended-install","--unit=lliurex-auto-upgrade-unattended-install","--pty","apt-mark","auto"]
-					command_line += self.auto_installed
-					subprocess.Popen(command_line,start_new_session=True,text=True,close_fds=True).communicate()
-					systemd.daemon.notify(f"STATUS=Unattended upgrade {item} packages have been installed.")
-				else:
-					raise Exception(f"Unattended upgrades install failed: {''.join(output[-20:])}")				
+				try:
+					if rc == 0:
+						self.unattended_conf["installed"][item]=True
+						self.write_unattended_conf()
+						install_counter +=1
+						self.pprint(f"{item} packages installed.")
+						systemd.daemon.notify(f"STATUS=Unattended upgrade {item} packages have been installed.")
+						
+					else:
+						# just in case we stop the transient unit
+						subprocess.run([ "systemctl" , "stop" , "lliurex-auto-upgrade-unattended-install"], check=False)
+						# reset its possible failed status
+						subprocess.run([ "systemctl" , "reset-failed" , "lliurex-auto-upgrade-unattended-install"], check=False)
+						# and clear the daemon
+						subprocess.run([ "systemctl" , "daemon-reload" ], check=False)
+						
+						raise Exception(f"Unattended upgrades install failed: {''.join(output[-20:])}")					
+				
+				finally:
+					# this might be a good idea to execute outside rc==0 . Installation might fail but we have to revert to auto mark anyway
+					# only if auto_installed list has items
+					if self.auto_installed:
+						command_line = ["systemd-run","--wait","--description=lliurex-auto-upgrade-unattended-mark-auto","--unit=lliurex-auto-upgrade-unattended-mark-auto","--pty","apt-mark","auto"]
+						command_line += self.auto_installed
+						subprocess.Popen(command_line,start_new_session=True,text=True,close_fds=True).communicate()
+				
+				
 				
 		
 		for item in self.unattended_conf["priority"]:
