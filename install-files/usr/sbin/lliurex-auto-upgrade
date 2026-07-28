@@ -346,7 +346,7 @@ class LliurexAutoUpgrade:
 					
 					allowed_from_server = True
 					
-					if "stop_unattended_upgrade" in self.remote_actions and self.remote_actions["stop_unattended_upgrade"]:
+					if self.remote_actions is not None and "stop_unattended_upgrade" in self.remote_actions and self.remote_actions["stop_unattended_upgrade"]:
 						allowed_from_server = False
 						self.pprint("[!] Lliurex.net is disabling unattended upgrade [!]")
 					
@@ -377,6 +377,7 @@ class LliurexAutoUpgrade:
 									os.close(real_fd)
 									
 							unattended_loops+=1
+							unattended_error_count = 0
 						except Exception as e:
 							time_spent=int(time.monotonic()-t1)
 							raise(e)
@@ -582,6 +583,7 @@ class LliurexAutoUpgrade:
 				
 			if not cert:
 				self.pprint("Failed to get certificate")
+				return False
 				
 			if "subject" not in cert:
 				self.pprint("Invalid certificate data")
@@ -594,9 +596,6 @@ class LliurexAutoUpgrade:
 		except Exception as e:
 			self.pprint("Failed to verify certificate.")
 			
-		if not verified:
-			raise Exception("Failed to verify certificate.")
-		
 		return verified
 		
 	#def check_certificate
