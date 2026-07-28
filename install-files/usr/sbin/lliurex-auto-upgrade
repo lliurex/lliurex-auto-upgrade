@@ -385,13 +385,14 @@ class LliurexAutoUpgrade:
 
 				except Exception as e:
 					self.pprint(f"[!] Unattended upgrades failed: {str(e)}")
+					systemd.daemon.notify(f"STATUS=Unattended upgrades failed: {str(e)}")
 					unattended_error_count+=1
 					sleep_counter=max(LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME,LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME*unattended_error_count)
 					if unattended_error_count>=LliurexAutoUpgrade.MAX_ERROR_COUNTER:
 						force_unattended_exit=True
 						self.pprint(f"Unattended upgrade failed {unattended_error_count} times. Giving up.")
 						sleep_counter=LliurexAutoUpgrade.SLEEP_TIME
-						systemd.daemon.notify(f"Unattended upgrade failed {unattended_error_count} times. Giving up.")
+						systemd.daemon.notify(f"STATUS=Unattended upgrade failed {unattended_error_count} times. Giving up.")
 						
 				
 				
