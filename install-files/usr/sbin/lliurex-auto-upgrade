@@ -391,6 +391,8 @@ class LliurexAutoUpgrade:
 						force_unattended_exit=True
 						self.pprint(f"Unattended upgrade failed {unattended_error_count} times. Giving up.")
 						sleep_counter=LliurexAutoUpgrade.SLEEP_TIME
+						systemd.daemon.notify(f"Unattended upgrade failed {unattended_error_count} times. Giving up.")
+						
 				
 				
 				# what we should wait minus what unattended upgrade took to complete
