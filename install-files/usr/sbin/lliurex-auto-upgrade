@@ -354,7 +354,7 @@ class LliurexAutoUpgrade:
 					if first_round_success and self.is_unattended_upgrade_configured() and (unattended_loops < LliurexAutoUpgrade.UNATTENDED_LIMIT or LliurexAutoUpgrade.UNATTENDED_LIMIT<0) and not force_unattended_exit and not failed_first_round and allowed_from_server:
 						unattended_wait_time=LliurexAutoUpgrade.UNATTENDED_DELAY
 						self.pprint(f"Unattended upgrades are enabled. Starting unattended upgrades in {unattended_wait_time} seconds...")
-						systemd.daemon.notify("STATUS=Unattended upgrades are enabled. Starting unattended upgrades...")
+						systemd.daemon.notify(f"STATUS=Unattended upgrades are enabled. Starting unattended upgrades in {unattended_wait_time} seconds...")
 						t1=time.monotonic()
 						# we delay execution a bit
 						time.sleep(unattended_wait_time)
@@ -391,6 +391,8 @@ class LliurexAutoUpgrade:
 						force_unattended_exit=True
 						self.pprint(f"Unattended upgrade failed {unattended_error_count} times. Giving up.")
 						sleep_counter=LliurexAutoUpgrade.SLEEP_TIME
+						systemd.daemon.notify(f"Unattended upgrade failed {unattended_error_count} times. Giving up.")
+						
 				
 				
 				# what we should wait minus what unattended upgrade took to complete
