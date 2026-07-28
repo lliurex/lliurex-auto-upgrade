@@ -35,16 +35,16 @@ def tag_gva_networks():
 	# Current IPs in GVA networks are:
 
 	# SECRETARIA (corporativa)
-	#  ldapad.edu.gva.es -> 192.168.81.12
-	#  lliurex.net -> 172.31.180.97
+	#  lliurex.net -> 10.182.17.10, 10.181.17.10
+	#  ldapad.edu.gva.es -> 172.31.181.136
 
 	# AULAS (gestionada)
-	#  ldapad.edu.gva.es -> 10.239.3.6
 	#  lliurex.net -> 10.239.3.11
+	#  ldapad.edu.gva.es -> 10.239.3.6
 
 	# NO GVA (INTERNET public addresses)
+	#  lliurex.net -> 193.145.206.25, 195.77.20.107, 195.77.16.27, 193.145.200.107
 	#  ldapad.edu.gva.es -> NONE
-	#  lliurex.net -> 195.77.20.178, 193.145.200.176
 
 	# The test consists of checking that DNS resolution
 	# returns private IPs. In addition, the class (A, B, or C)
@@ -63,15 +63,15 @@ def tag_gva_networks():
 	# hosts lists to check for each network
 	# key: hostname, value: list of expected networks 
 	secretaria_hosts = {
-		"lliurex.net" : [ priv_classB ],
-		"ldapad.edu.gva.es" : [ priv_classC ]
+		"lliurex.net" : [ priv_classA ],
+		"ldapad.edu.gva.es" : [ priv_classB ]
 		}
 	aulas_hosts = {
 		"lliurex.net" : [ priv_classA ],
 		"ldapad.edu.gva.es" : [ priv_classA ]
 		}
 	TEST_NOGVA_SAMPLE_hosts = {
-		"lliurex.net" : [ IPv4Network("193.145.200.0/24"), IPv4Network("195.77.20.0/24") ]
+		"lliurex.net" : [ IPv4Network("193.145.200.0/24"), IPv4Network("193.145.206.0/24"), IPv4Network("195.77.20.0/24"), IPv4Network("195.77.26.0/24") ]
 		}
 
 
