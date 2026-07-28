@@ -1,3 +1,10 @@
+lliurex-auto-upgrade (0.33.5) noble; urgency=medium
+
+  * New systemd messages
+  * New GVA Network values
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Tue, 28 Jul 2026 10:35:42 +0200
+
 lliurex-auto-upgrade (0.33.2) noble; urgency=medium
 
   * Better fixes_before_execution management 
