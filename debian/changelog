@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.33.4) jammy; urgency=medium
+
+  * Sending more systemd notify messages 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Tue, 28 Jul 2026 09:47:55 +0200
+
 lliurex-auto-upgrade (0.33.3) jammy; urgency=medium
 
   * Better fixes_before_execution management
