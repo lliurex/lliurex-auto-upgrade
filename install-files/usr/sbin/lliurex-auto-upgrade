@@ -78,24 +78,30 @@ class UpdateDB:
 			
 		return False
 		
-	def pprint(self,by_letter=False):
+	def pprint(self,external_print=None):
 		
-		print(f"DB: {self.db_name}")
+		if not external_print:
+			external_print = print
+		
+		external_print(f"DB: {self.db_name}")
 		size=self.install_size/1024/1024
-		print(f"\tNew packages [{len(self.install)}] size: {size:.2f} MB")
+		external_print(f"\tNew packages [{len(self.install)}] size: {size:.2f} MB")
 		size=self.upgrade_size/1024/1024
-		print(f"\tUpgrade packages [{len(self.upgrade)}] size: {size:.2f} MB")
+		external_print(f"\tUpgrade packages [{len(self.upgrade)}] size: {size:.2f} MB")
 		size=self.size/1024/1024
-		print(f"\tTotal size: {size:.2f} MB")
-		
+		external_print(f"\tTotal size: {size:.2f} MB")
+
+		# Doubt we will ever need this part
+		# lets keed the code for now anyway
+		by_letter=False
 		if not by_letter:
 			return 
 		tmp=sorted(self.size_by_letter.items(), key=lambda x: x[1],reverse=True)
-		print("\tSorted size by letter:")
+		external_print("\tSorted size by letter:")
 		for item in tmp:
 			letter,value=item
 			size=value/1024/1024
-			print(f"\t\t{letter}: {size:.2f} MB")
+			external_print(f"\t\t{letter}: {size:.2f} MB")
 	
 
 class LliurexAutoUpgrade:
@@ -1103,7 +1109,7 @@ class LliurexAutoUpgrade:
 		upgrade_packages_count=0
 		
 		for item in self.unattended_conf["priority"]:
-			self.update_db[item].pprint()
+			self.update_db[item].pprint(self.pprint)
 			install_size+=self.update_db[item].install_size
 			upgrade_size+=self.update_db[item].upgrade_size
 			total_size+=self.update_db[item].size
@@ -1195,6 +1201,16 @@ class LliurexAutoUpgrade:
 			
 		# we dont want to speed up downloaded notification. Only when a loop occurs where every element is already downloaded
 		# we return True
+		
+		# but auto-upgrade applet finds useful to know if everything has been downloaded as soon as possible
+		send_downloaded_message=True
+		for item in self.unattended_conf["priority"]:
+			if not self.unattended_conf["downloaded"][item]:
+				send_downloaded_message=False
+				break
+				
+		if send_downloaded_message:
+			systemd.daemon.notify("STATUS=Unattended upgrade has downloaded every component. Waiting until next reboot to install.")
 		
 		return False
 		
