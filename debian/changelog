@@ -1,3 +1,23 @@
+lliurex-auto-upgrade (0.33.9) noble; urgency=medium
+
+  * trying to manage if systemd-run transitional units fail. using
+    systemctl reset-failed call.
+  * if apt install unit fails, packages are still reverted to auto
+  * check_certificate needs to return False or True. Fixed raising exception 
+  * fixed smaller variable managing bugs
+  * sending a systemd notify message when everything has been downloaded and
+    process is waiting for the next reboot to start installing packages.
+  * added logit to UpdateDB pprint to allow it to use external print
+    functions, basically to allow updatedb pprints to be handled by main
+    LliureXAutoUpgrade class.   
+  * sending a systemd notify message when everything has been downloaded and
+    process is waiting for the next reboot to start installing packages.
+  * added logit to UpdateDB pprint to allow it to use external print
+    functions, basically to allow updatedb pprints to be handled by main
+    LliureXAutoUpgrade class. 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Thu, 30 Jul 2026 12:44:21 +0200
+
 lliurex-auto-upgrade (0.33.6) noble; urgency=medium
 
   * Fixed missing STATUS in systemd message and added another one 
