@@ -1,4 +1,4 @@
-lliurex-auto-upgrade (0.33.8) jammy; urgency=medium
+lliurex-auto-upgrade (0.33.9) jammy; urgency=medium
 
   * sending a systemd notify message when everything has been downloaded and
     process is waiting for the next reboot to start installing packages.
