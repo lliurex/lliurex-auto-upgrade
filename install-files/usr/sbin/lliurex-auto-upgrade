@@ -274,6 +274,7 @@ class LliurexAutoUpgrade:
 								if self.apt_cache["lliurex-auto-upgrade"].is_upgradable:
 									self.pprint(f"{self.hostname} has changed its '{self.org_id}' field. Giving lliurex-auto-upgrade a chance to upgrade itself...")
 									self.apt_cache["lliurex-auto-upgrade"].mark_upgrade()
+									self.packages_to_update=True
 									self.pprint("\tInhibiting shutdown...")
 									fd_shutdown = manager.Inhibit("shutdown","lliurex-auto-upgrade","Updating system","block")
 									real_fd=fd_shutdown.take()
@@ -282,6 +283,7 @@ class LliurexAutoUpgrade:
 									finally:
 										self.pprint("\tReleasing shutdown inhibition...")
 										os.close(real_fd)
+										self.packages_to_update=False
 									
 									raise  Exception(f"Failed to verify {self.hostname}:{self.org_id} certificate. lliurex-auto-upgrade was updated anyway. Trying again...")
 									
@@ -346,65 +348,82 @@ class LliurexAutoUpgrade:
 
 
 				# Lliurex auto upgrade - unattended upgrades	
+				time_spent=0
 				
-				try:
-					time_spent=0
+				if self.is_unattended_upgrade_configured():
 					
-					allowed_from_server = True
-					
-					if self.remote_actions is not None and "stop_unattended_upgrade" in self.remote_actions and self.remote_actions["stop_unattended_upgrade"]:
-						allowed_from_server = False
-						self.pprint("[!] Lliurex.net is disabling unattended upgrade [!]")
-					
-					# at least we want auto-upgrade to execute properly once
-					if first_round_success and self.is_unattended_upgrade_configured() and (unattended_loops < LliurexAutoUpgrade.UNATTENDED_LIMIT or LliurexAutoUpgrade.UNATTENDED_LIMIT<0) and not force_unattended_exit and not failed_first_round and allowed_from_server:
-						unattended_wait_time=LliurexAutoUpgrade.UNATTENDED_DELAY
-						self.pprint(f"Unattended upgrades are enabled. Starting unattended upgrades in {unattended_wait_time} seconds...")
-						systemd.daemon.notify(f"STATUS=Unattended upgrades are enabled. Starting unattended upgrades in {unattended_wait_time} seconds...")
-						t1=time.monotonic()
-						# we delay execution a bit
-						time.sleep(unattended_wait_time)
-						try:
+					try:
 
-							self.get_filtered_packages()
-							ret=self.download_packages(LliurexAutoUpgrade.UNATTENDED_LIMIT)
-							# download_packages returns true when everything is already downloaded
-							if ret:
+						
+						allowed_from_server = True
+						if self.remote_actions is not None and "stop_unattended_upgrade" in self.remote_actions and self.remote_actions["stop_unattended_upgrade"]:
+							allowed_from_server = False
+							self.pprint("[!] Lliurex.net is disabling unattended upgrade [!]")
+						
+						# old if line. Lets try to simplify loop.
+						#if first_round_success and self.is_unattended_upgrade_configured() and (unattended_loops < LliurexAutoUpgrade.UNATTENDED_LIMIT or LliurexAutoUpgrade.UNATTENDED_LIMIT<0) and not force_unattended_exit and not failed_first_round and allowed_from_server:
+						
+						# svnlliurexnet is allowing us to execute loop
+						if allowed_from_server:
+							# at least we want auto-upgrade to execute properly once
+							if first_round_success:
+								# either we execute it once or unlimited_loops is set to True and we execute unattended upgrades every loop
+								if unattended_loops < 1 or self.unattended_conf["unlimited_loops"]:
 								
-								self.pprint("\tInhibiting shutdown...")
-								fd_shutdown = manager.Inhibit("shutdown","lliurex-auto-upgrade","Updating system","block")
-								real_fd=fd_shutdown.take()
-								try:
-									ret2=self.install_packages(LliurexAutoUpgrade.UNATTENDED_LIMIT)
-									if ret2:
-										force_unattended_exit=True
-								finally:
-									self.pprint("\tReleasing shutdown inhibition...")
-									os.close(real_fd)
+									unattended_wait_time=LliurexAutoUpgrade.UNATTENDED_DELAY
+									self.pprint(f"Unattended upgrades are enabled. Starting unattended upgrades in {unattended_wait_time} seconds...")
+									systemd.daemon.notify(f"STATUS=Unattended upgrades are enabled. Starting unattended upgrades in {unattended_wait_time} seconds...")
+									t1=time.monotonic()
+									# we delay execution a bit
+									time.sleep(unattended_wait_time)
 									
-							unattended_loops+=1
-							unattended_error_count = 0
-						except Exception as e:
-							time_spent=int(time.monotonic()-t1)
-							raise(e)
-								
-						time_spent=int(time.monotonic()-t1)
+									try:
+										self.get_filtered_packages()
+										ret=self.download_packages(LliurexAutoUpgrade.UNATTENDED_LIMIT)
+										# download_packages returns true when everything is already downloaded
+										# we only install on first loop
+										if ret and unattended_loops == 0:
+											
+											self.pprint("\tInhibiting shutdown...")
+											fd_shutdown = manager.Inhibit("shutdown","lliurex-auto-upgrade","Updating system","block")
+											real_fd=fd_shutdown.take()
+											try:
+												# wether every package is installed or by phases is determined by install_in_one_step configuration
+												limit=LliurexAutoUpgrade.UNATTENDED_LIMIT
+												if self.unattended_conf["install_in_one_step"]:
+													limit=-1
+												ret2=self.install_packages(limit)
+												if ret2:
+													force_unattended_exit=True
+											finally:
+												self.pprint("\tReleasing shutdown inhibition...")
+												os.close(real_fd)
+												
+										unattended_loops+=1
+										unattended_error_count = 0
+										
+									except Exception as e:
+										time_spent=int(time.monotonic()-t1)
+										raise(e)
+											
+									time_spent=int(time.monotonic()-t1)
 
-				except Exception as e:
-					self.pprint(f"[!] Unattended upgrades failed: {str(e)}")
-					systemd.daemon.notify(f"STATUS=Unattended upgrades failed: {str(e)}")
-					unattended_error_count+=1
-					sleep_counter=max(LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME,LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME*unattended_error_count)
-					if unattended_error_count>=LliurexAutoUpgrade.MAX_ERROR_COUNTER:
-						force_unattended_exit=True
-						self.pprint(f"Unattended upgrade failed {unattended_error_count} times. Giving up.")
-						sleep_counter=LliurexAutoUpgrade.SLEEP_TIME
-						systemd.daemon.notify(f"STATUS=Unattended upgrade failed {unattended_error_count} times. Giving up.")
+					except Exception as e:
+						self.pprint(f"[!] Unattended upgrades failed: {str(e)}")
+						systemd.daemon.notify(f"STATUS=Unattended upgrades failed: {str(e)}")
+						unattended_error_count+=1
+						sleep_counter=max(LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME,LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME*unattended_error_count)
+						
+						if unattended_error_count>=LliurexAutoUpgrade.MAX_ERROR_COUNTER:
+							force_unattended_exit=True
+							self.pprint(f"Unattended upgrade failed {unattended_error_count} times. Giving up.")
+							sleep_counter=LliurexAutoUpgrade.SLEEP_TIME
+							systemd.daemon.notify(f"STATUS=Unattended upgrade failed {unattended_error_count} times. Giving up.")
 						
 				
 				
 				# what we should wait minus what unattended upgrade took to complete
-				# At least wait ALTERNAT_SLEEP_TIME
+				# At least wait ALTERNATE_SLEEP_TIME
 				sleep_counter=max(LliurexAutoUpgrade.ALTERNATE_SLEEP_TIME,sleep_counter-time_spent)
 				self.pprint(f"Sleeping {sleep_counter/60:.2f} minutes until next loop...")
 				woken_up_by_signal=self.wakeup_event.wait(timeout=sleep_counter)
@@ -448,6 +467,28 @@ class LliurexAutoUpgrade:
 			syslog.syslog(f"[LAU] {data}")
 		
 	#def pprint
+
+	def get_unit_status(self,unit="lliurex-auto-upgrade.service"):
+
+		status_text = None
+
+		try:
+			bus = dbus.SystemBus()
+			systemd_object = bus.get_object('org.freedesktop.systemd1', '/org/freedesktop/systemd1')
+			manager = dbus.Interface(systemd_object, dbus_interface='org.freedesktop.systemd1.Manager')
+
+			unit_path = manager.LoadUnit(unit)
+			unit_object = bus.get_object('org.freedesktop.systemd1', unit_path)
+
+			properties_interface = dbus.Interface(unit_object, dbus_interface='org.freedesktop.DBus.Properties')
+			status_text = properties_interface.Get('org.freedesktop.systemd1.Service', 'StatusText'	)
+		except Exception as e:
+			self.pprint(f"[!] Failed to get {unit} status: {str(e)}")
+
+		return status_text
+		
+	#def get_unit_status
+
 
 	def find_process(self,name,strict=True):
 		
@@ -927,11 +968,13 @@ class LliurexAutoUpgrade:
 	
 	def usage(self):
 		
-		print("USAGE: lliurex-auto-upgrade [ serve | reload | remote-tags | system-tags | dry-run | add-tag TAG_NAME | delete-tag TAG_NAME ]")
+		print("USAGE: lliurex-auto-upgrade [ serve | reload | remote-tags | system-tags | dry-run | add-tag TAG_NAME | delete-tag TAG_NAME ] | get-status | enable-unattended-upgrades | disable-unattended-upgrades | stop-unattended-upgrades ")
 		print("")
 		print("\tserve: server used by systemd to manage updates automatically.")
 		print("\treload: forces server to reload local and remote tags as soon as possible.")
+		print("\tget-status: gets lliurex-auto-upgrade.service systemd current status.")
 		print("\tenable-unattended-upgrades: enables unattended upgrades.")
+		print("\tstop-unattended-upgrades: if unattended upgrades are enabled, this disables them by writting enabled=False in configuration file.")
 		print("\tdisable-unattended-upgrades: disables unattended upgrades.")
 		print("\tremote-tags: print remote rules.")
 		print("\tsystem-tags: print system tags.")
@@ -967,9 +1010,8 @@ class LliurexAutoUpgrade:
 		if not os.path.exists(filter_path):
 			return []
 		
-		if os.path.exists(filter_path):
-			with open(filter_path) as f:
-				lines=f.readlines()
+		with open(filter_path) as f:
+			lines=f.readlines()
 				
 		package_list=[]
 		
@@ -1243,47 +1285,53 @@ class LliurexAutoUpgrade:
 
 				systemd.daemon.notify(f"STATUS=Unattended upgrade is installing {item} packages...")
 				command_line = ["systemd-run","--wait","--description=lliurex-auto-upgrade-unattended-install","--unit=lliurex-auto-upgrade-unattended-install","--pty","apt","-y","install"]
-				command_line += self.update_db[item].install
-				command_line += self.update_db[item].upgrade
-				p=subprocess.Popen(command_line,start_new_session=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,text=True,close_fds=True)
-				
-				output=[]
-				
-				for line in p.stdout:
-					self.pprint(line.strip())
-					output.append(line)
-				
-				rc=p.wait()
-				
-				try:
-					if rc == 0:
-						self.unattended_conf["installed"][item]=True
-						self.write_unattended_conf()
-						install_counter +=1
-						self.pprint(f"{item} packages installed.")
-						systemd.daemon.notify(f"STATUS=Unattended upgrade {item} packages have been installed.")
-						
-					else:
-						# just in case we stop the transient unit
-						#subprocess.run([ "systemctl" , "stop" , "lliurex-auto-upgrade-unattended-install"], check=False)
-						# reset its possible failed status
-						subprocess.run([ "systemctl" , "reset-failed" , "lliurex-auto-upgrade-unattended-install"], check=False)
-						# and clear the daemon
-						#subprocess.run([ "systemctl" , "daemon-reload" ], check=False)
-						
-						# Note to self: not sure if stop and daemon-reload is overkill. For now lets rely on just reset-failed.
-						
-						raise Exception(f"Unattended upgrades install failed: {''.join(output[-20:])}")					
-				
-				finally:
-					# this might be a good idea to execute outside rc==0 . Installation might fail but we have to revert to auto mark anyway
-					# only if auto_installed list has items
-					if self.auto_installed:
-						command_line = ["systemd-run","--wait","--description=lliurex-auto-upgrade-unattended-mark-auto","--unit=lliurex-auto-upgrade-unattended-mark-auto","--pty","apt-mark","auto"]
-						command_line += self.auto_installed
-						subprocess.Popen(command_line,start_new_session=True,text=True,close_fds=True).communicate()
-				
-				
+				package_list =self.update_db[item].install + self.update_db[item].upgrade
+
+				if len(package_list)>0:
+					command_line += package_list
+					p=subprocess.Popen(command_line,start_new_session=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,text=True,close_fds=True)
+					
+					output=[]
+					
+					for line in p.stdout:
+						self.pprint(line.strip())
+						output.append(line)
+					
+					rc=p.wait()
+					
+					try:
+						if rc == 0:
+							self.unattended_conf["installed"][item]=True
+							self.write_unattended_conf()
+							install_counter +=1
+							self.pprint(f"{item} packages installed.")
+							systemd.daemon.notify(f"STATUS=Unattended upgrade {item} packages have been installed.")
+							
+						else:
+							# just in case we stop the transient unit
+							#subprocess.run([ "systemctl" , "stop" , "lliurex-auto-upgrade-unattended-install"], check=False)
+							# reset its possible failed status
+							subprocess.run([ "systemctl" , "reset-failed" , "lliurex-auto-upgrade-unattended-install"], check=False)
+							# and clear the daemon
+							#subprocess.run([ "systemctl" , "daemon-reload" ], check=False)
+							
+							# Note to self: not sure if stop and daemon-reload is overkill. For now lets rely on just reset-failed.
+							
+							raise Exception(f"Unattended upgrades install failed: {''.join(output[-20:])}")					
+					
+					finally:
+						# this might be a good idea to execute outside rc==0 . Installation might fail but we have to revert to auto mark anyway
+						# only if auto_installed list has items
+						if self.auto_installed:
+							command_line = ["systemd-run","--wait","--description=lliurex-auto-upgrade-unattended-mark-auto","--unit=lliurex-auto-upgrade-unattended-mark-auto","--pty","apt-mark","auto"]
+							command_line += self.auto_installed
+							subprocess.Popen(command_line,start_new_session=True,text=True,close_fds=True).communicate()
+				else:
+					self.unattended_conf["installed"][item]=True
+					self.write_unattended_conf()
+					install_counter +=1
+					self.pprint(f"{item} packages installed.")
+					systemd.daemon.notify(f"STATUS=Unattended upgrade {item} packages have been installed.")
 				
 		
 		for item in self.unattended_conf["priority"]:
@@ -1350,6 +1398,8 @@ class LliurexAutoUpgrade:
 		data={}
 		data["enabled"]=True
 		data["proxified"]=False
+		data["unlimited_loops"]=True
+		data["install_in_one_step"]=True
 		data["downloaded"]={}
 		data["downloaded"]["lliurex"]=False
 		data["downloaded"]["security"]=False
@@ -1434,6 +1484,13 @@ if __name__=="__main__":
 		elif option=="disable-unattended-upgrades":
 			if os.path.exists(lau.unattended_conf_file):
 				os.remove(lau.unattended_conf_file)
+		elif option=="stop-unattended-upgrades":
+			if os.path.exists(lau.unattended_conf_file):
+				lau.read_unattended_conf()
+				lau.unattended_conf["enabled"]=False
+				lau.write_unattended_conf()
+			else:
+				print("[!] There is no unattended upgrade configuration file. [!]")
 		elif option=="check-unattended-upgrades":
 			if not os.path.exists(lau.unattended_conf_file):
 				print("[!] There is no unattended upgrade configuration file [!]")
@@ -1447,6 +1504,8 @@ if __name__=="__main__":
 		elif option=="reload":
 			lau.check_root()
 			lau.send_force_signal()
+		elif option=="get-status":
+			print(lau.get_unit_status())
 		elif option=="remote-tags":
 			lau._remote_tags()
 		elif option=="system-tags":
