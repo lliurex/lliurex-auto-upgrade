@@ -961,13 +961,36 @@ class LliurexAutoUpgrade:
 		
 	#def delete_tag
 	
+	def get_unit_status(self,unit="lliurex-auto-upgrade.service"):
+		
+		status_text = None
+		
+		try:
+			bus = dbus.SystemBus()
+			systemd_object = bus.get_object('org.freedesktop.systemd1', '/org/freedesktop/systemd1')
+			manager = dbus.Interface(systemd_object, dbus_interface='org.freedesktop.systemd1.Manager')
+
+			unit_path = manager.LoadUnit(unit)
+			unit_object = bus.get_object('org.freedesktop.systemd1', unit_path)
+
+			properties_interface = dbus.Interface(unit_object, dbus_interface='org.freedesktop.DBus.Properties')
+			status_text = properties_interface.Get('org.freedesktop.systemd1.Service', 'StatusText'	)
+		except Exception as e:
+			self.pprint(f"[!] Failed to get {unit} status. {str(e)}")
+
+		return status_text
+		
+	#def get_unit_status
+	
 	def usage(self):
 		
-		print("USAGE: lliurex-auto-upgrade [ serve | reload | remote-tags | system-tags | dry-run | add-tag TAG_NAME | delete-tag TAG_NAME ]")
+		print("USAGE: lliurex-auto-upgrade [ serve | reload | remote-tags | system-tags | dry-run | add-tag TAG_NAME | delete-tag TAG_NAME ] | get-status | enable-unattended-upgrades | disable-unattended-upgrades | stop-unattended-upgrades ")
 		print("")
 		print("\tserve: server used by systemd to manage updates automatically.")
 		print("\treload: forces server to reload local and remote tags as soon as possible.")
+		print("\tget-status: gets lliurex-auto-upgrade.service systemd current status.")
 		print("\tenable-unattended-upgrades: enables unattended upgrades.")
+		print("\tstop-unattended-upgrades: if unattended upgrades are enabled, this disables them by writting enabled=False in configuration file.")
 		print("\tdisable-unattended-upgrades: disables unattended upgrades.")
 		print("\tremote-tags: print remote rules.")
 		print("\tsystem-tags: print system tags.")
@@ -1472,6 +1495,13 @@ if __name__=="__main__":
 		elif option=="disable-unattended-upgrades":
 			if os.path.exists(lau.unattended_conf_file):
 				os.remove(lau.unattended_conf_file)
+		elif option=="stop-unattended-upgrades":
+			if os.path.exists(lau.unattended_conf_file):
+				lau.read_unattended_conf():
+				lau.unattended_conf["enabled"]=False
+				lau.write_unattended_conf()
+			else:
+				print("[!] There is no unattended upgrade configuration file. [!]")
 		elif option=="check-unattended-upgrades":
 			if not os.path.exists(lau.unattended_conf_file):
 				print("[!] There is no unattended upgrade configuration file [!]")
@@ -1485,6 +1515,8 @@ if __name__=="__main__":
 		elif option=="reload":
 			lau.check_root()
 			lau.send_force_signal()
+		elif option=="get-status"
+			print(lau.get_unit_status())
 		elif option=="remote-tags":
 			lau._remote_tags()
 		elif option=="system-tags":
