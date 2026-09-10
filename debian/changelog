@@ -1,3 +1,13 @@
+lliurex-auto-upgrade (0.34) jammy; urgency=medium
+
+  * Added unlimited_loops options, enabled by default. Unattended upgraded
+    loop is always executed after lliurex-auto-upgrade loop. Can be disabled.
+  * Added install_in_one_step option, enabled by default, to install every
+    single component in a single loop, which is ALWAYS the first one. Can be
+    disabled. 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Thu, 10 Sep 2026 11:31:32 +0200
+
 lliurex-auto-upgrade (0.33.9) jammy; urgency=medium
 
   * sending a systemd notify message when everything has been downloaded and
