@@ -1,3 +1,10 @@
+lliurex-auto-upgrade (0.34.2) jammy; urgency=medium
+
+  * get_filtered_packages returns False if there is nothing to install. This
+    state is announced to systemd 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Wed, 16 Sep 2026 10:37:55 +0200
+
 lliurex-auto-upgrade (0.34.1) jammy; urgency=medium
 
   * get-status and stop-unattended-upgrades options
