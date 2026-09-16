@@ -378,27 +378,28 @@ class LliurexAutoUpgrade:
 									time.sleep(unattended_wait_time)
 									
 									try:
-										self.get_filtered_packages()
-										ret=self.download_packages(LliurexAutoUpgrade.UNATTENDED_LIMIT)
-										# download_packages returns true when everything is already downloaded
-										# we only install on first loop
-										if ret and unattended_loops == 0:
-											
-											self.pprint("\tInhibiting shutdown...")
-											fd_shutdown = manager.Inhibit("shutdown","lliurex-auto-upgrade","Updating system","block")
-											real_fd=fd_shutdown.take()
-											try:
-												# wether every package is installed or by phases is determined by install_in_one_step configuration
-												limit=LliurexAutoUpgrade.UNATTENDED_LIMIT
-												if self.unattended_conf["install_in_one_step"]:
-													limit=-1
-												ret2=self.install_packages(limit)
-												if ret2:
-													force_unattended_exit=True
-											finally:
-												self.pprint("\tReleasing shutdown inhibition...")
-												os.close(real_fd)
+										# this function returns false if current state is up-to-date
+										if self.get_filtered_packages():
+											ret=self.download_packages(LliurexAutoUpgrade.UNATTENDED_LIMIT)
+											# download_packages returns true when everything is already downloaded
+											# we only install on first loop
+											if ret and unattended_loops == 0:
 												
+												self.pprint("\tInhibiting shutdown...")
+												fd_shutdown = manager.Inhibit("shutdown","lliurex-auto-upgrade","Updating system","block")
+												real_fd=fd_shutdown.take()
+												try:
+													# wether every package is installed or by phases is determined by install_in_one_step configuration
+													limit=LliurexAutoUpgrade.UNATTENDED_LIMIT
+													if self.unattended_conf["install_in_one_step"]:
+														limit=-1
+													ret2=self.install_packages(limit)
+													if ret2:
+														force_unattended_exit=True
+												finally:
+													self.pprint("\tReleasing shutdown inhibition...")
+													os.close(real_fd)
+													
 										unattended_loops+=1
 										unattended_error_count = 0
 										
@@ -1055,7 +1056,6 @@ class LliurexAutoUpgrade:
 		
 		lvt=self.download_cache["lliurex-version-timestamp"]
 		lvt_version=lvt.candidate.version
-		
 		self.update_unattended_conf(lvt_version)
 
 		for pkg in self.download_cache:
@@ -1167,9 +1167,14 @@ class LliurexAutoUpgrade:
 		size=total_size/1024/1024
 		self.pprint(f"\t Total size: {size:.2f} MB" )
 
+		if install_packages_count == 0 and upgrade_packages_count == 0:
+			# we have nothing to do
+			self.pprint("System is up to date. Nothing to upgrade.")
+			systemd.daemon.notify("STATUS=System is up to date. Nothing to upgrade.")
+			return False
 		
 
-		return self.update_db
+		return True
 
 	#def get
 	
