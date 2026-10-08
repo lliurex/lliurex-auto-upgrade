@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.34.3) noble; urgency=medium
+
+  * Updating repo URL
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Thu, 08 Oct 2026 12:19:02 +0200
+
 lliurex-auto-upgrade (0.34.2) noble; urgency=medium
 
   * get_filtered_packages returns False if there is nothing to install. This 
