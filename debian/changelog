@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.34.3) jammy; urgency=medium
+
+  * Updating repositories to lliurex.gva.es 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Thu, 08 Oct 2026 12:18:06 +0200
+
 lliurex-auto-upgrade (0.34.2) jammy; urgency=medium
 
   * get_filtered_packages returns False if there is nothing to install. This
