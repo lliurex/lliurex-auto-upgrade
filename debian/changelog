@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.35) noble; urgency=medium
+
+  * First unattended upgrades public release 
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 13 Nov 2026 10:12:16 +0100
+
 lliurex-auto-upgrade (0.34.3) noble; urgency=medium
 
   * Updating repo URL
