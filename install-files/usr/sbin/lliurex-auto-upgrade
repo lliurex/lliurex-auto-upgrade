@@ -1389,12 +1389,16 @@ class LliurexAutoUpgrade:
 		
 		if data is None:
 			data = self.unattended_conf
+		try:
+			tmp=json.dumps(data,indent=4,ensure_ascii=False)
+			with open(self.unattended_conf_file+".tmp","w") as f:
+				f.write(tmp)
 			
-		tmp=json.dumps(data,indent=4,ensure_ascii=False)
-		with open(self.unattended_conf_file,"w") as f:
-			f.write(tmp)
-				
-		return True
+			os.replace(self.unattended_conf_file+".tmp",self.unattended_conf_file)
+		
+			return True
+		except Exception as e:
+			self.pprint(f"[!] write_unattended_conf failed: {str(e)}")
 		
 	#def write_unattended_conf
 	
