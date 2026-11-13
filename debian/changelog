@@ -1,3 +1,9 @@
+lliurex-auto-upgrade (0.35) jammy; urgency=medium
+
+  * First public unattended upgrades release
+
+ -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 13 Nov 2026 10:08:36 +0100
+
 lliurex-auto-upgrade (0.34.3) jammy; urgency=medium
 
   * Updating repositories to lliurex.gva.es 
